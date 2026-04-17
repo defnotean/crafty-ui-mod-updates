@@ -18,7 +18,6 @@ from app.classes.helpers.file_helpers import FileHelpers
 from app.classes.shared.websocket_manager import WebSocketManager
 from app.classes.steamcmd.steamcmd import SteamCMD
 
-
 logger = logging.getLogger(__name__)
 
 HYTALE_0UTPUT_NAME = "hytale.zip"

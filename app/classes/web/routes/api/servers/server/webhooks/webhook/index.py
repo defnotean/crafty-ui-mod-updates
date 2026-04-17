@@ -8,7 +8,6 @@ from app.classes.models.server_permissions import EnumPermissionsServer
 from app.classes.web.webhooks.webhook_factory import WebhookFactory
 from app.classes.web.base_api_handler import BaseApiHandler
 
-
 logger = logging.getLogger(__name__)
 
 webhook_patch_schema = {

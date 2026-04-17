@@ -29,7 +29,7 @@ class ApiUsersUserIndexHandler(BaseApiHandler):
         if user_id in ["@me", user["user_id"]]:
             user_id = user["user_id"]
             res_user = user
-        elif EnumPermissionsCrafty.USER_CONFIG not in exec_user_crafty_permissions:
+        elif not self.can_modify_user(exec_user_crafty_permissions, auth_data, user_id):
             return self.finish_json(
                 400,
                 {
@@ -80,7 +80,7 @@ class ApiUsersUserIndexHandler(BaseApiHandler):
         ):
             user_id = user["user_id"]
             can_delete = True
-        elif EnumPermissionsCrafty.USER_CONFIG not in exec_user_crafty_permissions:
+        elif not self.can_modify_user(exec_user_crafty_permissions, auth_data, user_id):
             return self.finish_json(
                 400,
                 {
@@ -181,10 +181,7 @@ class ApiUsersUserIndexHandler(BaseApiHandler):
             )
         if user_id == "@me":
             user_id = user["user_id"]
-        if (
-            EnumPermissionsCrafty.USER_CONFIG not in exec_user_crafty_permissions
-            and str(user["user_id"]) != str(user_id)
-        ):
+        if not self.can_modify_user(exec_user_crafty_permissions, auth_data, user_id):
             # If doesn't have perm can't edit other users
             return self.finish_json(
                 400,
@@ -252,7 +249,9 @@ class ApiUsersUserIndexHandler(BaseApiHandler):
                         ),
                     },
                 )
-            if EnumPermissionsCrafty.USER_CONFIG not in exec_user_crafty_permissions:
+            if not self.can_modify_user(
+                exec_user_crafty_permissions, auth_data, user_id
+            ):
                 # Checks if user is trying to change permissions of someone
                 # else without User Config permission. We don't want that.
                 return self.finish_json(
@@ -280,7 +279,9 @@ class ApiUsersUserIndexHandler(BaseApiHandler):
                         ),
                     },
                 )
-            if EnumPermissionsCrafty.USER_CONFIG not in exec_user_crafty_permissions:
+            if not self.can_modify_user(
+                exec_user_crafty_permissions, auth_data, user_id
+            ):
                 # Checks if user is trying to change roles of someone
                 # else without User Config permission. We don't want that.
                 return self.finish_json(

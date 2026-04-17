@@ -455,10 +455,8 @@ class Helpers:
         try:
             ip = get("https://api.ipify.org", timeout=1).content.decode("utf8")
         except Exception as e:
-            logger.info(
-                f"Unable to connect to api.ipify.org, \
-                        falling back to google.com: {e}"
-            )
+            logger.info(f"Unable to connect to api.ipify.org, \
+                        falling back to google.com: {e}")
             ip = "google.com"
         a_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         a_socket.settimeout(20.0)

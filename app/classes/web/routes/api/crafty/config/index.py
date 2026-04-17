@@ -276,7 +276,7 @@ class ApiCraftyConfigIndexHandler(BaseApiHandler):
         auth_data = self.authenticate_user()
         if not auth_data:
             return
-        (_, _, _, superuser, user, _) = auth_data
+        _, _, _, superuser, user, _ = auth_data
 
         if not superuser:
             return self.finish_json(

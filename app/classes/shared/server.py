@@ -48,6 +48,60 @@ logger = logging.getLogger(__name__)
 SUCCESSMSG = "SUCCESS! Forge install completed"
 
 
+def extract_backup_info(res):
+    if not isinstance(res, dict):
+        return {}, {}
+    return {
+        "backup_name": res.get("backup_name"),
+        "backup_size": str(res.get("backup_size")),
+        "backup_link": res.get("backup_link"),
+        "backup_status": res.get("backup_status"),
+        "backup_error": res.get("backup_error"),
+    }
+
+
+def build_event_data(server, command, event_type, backup_info):
+    event_data = {
+        "server_name": server.name,
+        "server_id": server.server_id,
+        "command": command,
+        "event_type": event_type,
+        **backup_info,
+    }
+    return event_data
+
+
+def process_webhook(swebhook, server, command, event_type, res):
+    webhook = HelpersWebhooks.get_webhook_by_id(swebhook.id)
+    webhook_provider = WebhookFactory.create_provider(webhook["webhook_type"])
+
+    backup_info = extract_backup_info(res)
+    event_data = build_event_data(server, command, event_type, backup_info)
+    event_data = webhook_provider.add_time_variables(event_data)
+
+    if res is not False and swebhook.enabled:
+        webhook_provider.send(
+            server_name=server.name,
+            title=webhook["name"],
+            url=webhook["url"],
+            message_template=webhook["body"],
+            event_data=event_data,
+            color=webhook["color"],
+            bot_name=webhook["bot_name"],
+        )
+
+
+def send_webhook(event_type: str, res, command: str, args):
+    server = args[0]
+    server_webhooks = HelpersWebhooks.get_webhooks_by_server(server.server_id, True)
+    for swebhook in server_webhooks:
+        if event_type in str(swebhook.trigger).split(","):
+            logger.info(
+                f"Found callback for event {event_type} for server {server.server_id}"
+            )
+            process_webhook(swebhook, server, command, event_type, res)
+
+
 def callback(called_func):
     # Usage of @callback on method
     # definition to run a webhook check
@@ -64,59 +118,7 @@ def callback(called_func):
             command = args[1] if len(args) > 1 else kwargs.get("command", "")
 
             if event_type in WebhookFactory.get_monitored_events():
-                server_webhooks = HelpersWebhooks.get_webhooks_by_server(
-                    args[0].server_id, True
-                )
-                for swebhook in server_webhooks:
-                    if event_type in str(swebhook.trigger).split(","):
-                        logger.info(
-                            f"Found callback for event {event_type}"
-                            f" for server {args[0].server_id}"
-                        )
-                        webhook = HelpersWebhooks.get_webhook_by_id(swebhook.id)
-                        webhook_provider = WebhookFactory.create_provider(
-                            webhook["webhook_type"]
-                        )
-
-                        # Extract source context from kwargs if present
-                        backup_name = ""
-                        backup_size = ""
-                        backup_link = ""
-                        backup_status = ""
-                        backup_error = ""
-
-                        if isinstance(res, dict):
-                            backup_name = res.get("backup_name")
-                            backup_size = str(res.get("backup_size"))
-                            backup_link = res.get("backup_link")
-                            backup_status = res.get("backup_status")
-                            backup_error = res.get("backup_error")
-
-                        event_data = {
-                            "server_name": args[0].name,
-                            "server_id": args[0].server_id,
-                            "command": command,
-                            "event_type": event_type,
-                            "backup_name": backup_name,
-                            "backup_size": backup_size,
-                            "backup_link": backup_link,
-                            "backup_status": backup_status,
-                            "backup_error": backup_error,
-                        }
-
-                        # Add time variables to event_data
-                        event_data = webhook_provider.add_time_variables(event_data)
-
-                        if res is not False and swebhook.enabled:
-                            webhook_provider.send(
-                                server_name=args[0].name,
-                                title=webhook["name"],
-                                url=webhook["url"],
-                                message_template=webhook["body"],
-                                event_data=event_data,
-                                color=webhook["color"],
-                                bot_name=webhook["bot_name"],
-                            )
+                send_webhook(event_type, res, command, args)
         return res
 
     return wrapper

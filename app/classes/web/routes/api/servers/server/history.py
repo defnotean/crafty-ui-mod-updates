@@ -2,7 +2,6 @@ import logging
 from app.classes.web.base_api_handler import BaseApiHandler
 from app.classes.controllers.servers_controller import ServersController
 
-
 logger = logging.getLogger(__name__)
 
 

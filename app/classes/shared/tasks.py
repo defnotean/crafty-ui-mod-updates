@@ -1,28 +1,32 @@
-import os
-import time
-import logging
-import threading
 import asyncio
 import datetime
 import json
+import logging
+import os
+import threading
+import time
 from pathlib import Path
+from typing import Any, List, Optional, TypedDict, cast
 from zoneinfo import ZoneInfoNotFoundError
-from tzlocal import get_localzone
-from peewee import DoesNotExist
+
 from apscheduler.events import EVENT_JOB_EXECUTED
+from apscheduler.job import Job
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from peewee import DoesNotExist
+from requests.exceptions import JSONDecodeError
+from tzlocal import get_localzone
 
-from app.classes.models.management import HelpersManagement
-from app.classes.models.users import HelperUsers
 from app.classes.controllers.users_controller import UsersController
-from app.classes.shared.console import Console
 from app.classes.helpers.file_helpers import FileHelpers
 from app.classes.helpers.helpers import Helpers
+from app.classes.models.management import HelpersManagement, Schedules
+from app.classes.models.users import HelperUsers
+from app.classes.shared.console import Console
 from app.classes.shared.main_controller import Controller
-from app.classes.web.tornado_handler import Webserver
 from app.classes.shared.websocket_manager import WebSocketManager
+from app.classes.web.tornado_handler import Webserver
 
 logger = logging.getLogger("apscheduler")
 command_log = logging.getLogger("cmd_queue")
@@ -40,6 +44,32 @@ scheduler_intervals = {
     "saturday",
     "sunday",
 }
+
+FAILED_DB_IMPORT_MESSAGE = "Removing failed task from DB."
+SCHEDULE_DATE_STRING_FORMAT = "%m/%d/%Y, %H:%M:%S"
+
+
+class ScheduleJobData(TypedDict):
+    server_id: str
+    action: str
+    interval: int
+    interval_type: str
+    start_time: str
+    command: str | None
+    name: str
+    enabled: bool
+    one_time: bool
+    cron_string: str
+    parent: int | None
+    delay: int
+    action_id: Optional[str | None]
+
+
+class QueuedCommandData(TypedDict):
+    server_id: str
+    user_id: int
+    command: str | None
+    action_id: str | None
 
 
 class TasksManager:
@@ -88,49 +118,67 @@ class TasksManager:
     def get_main_thread_run_status(self):
         return self.main_thread_exiting
 
-    def reload_schedule_from_db(self):
+    @staticmethod
+    def reload_schedule_from_db() -> None:
+        """Reloads schedules using a helper and logs all enabled schedules"""
         jobs = HelpersManagement.get_schedules_enabled()
         logger.info("Reload from DB called. Current enabled schedules: ")
         for item in jobs:
             logger.info(f"JOB: {item}")
 
-    def command_watcher(self):
+    def command_watcher(self) -> None:
+        """Process queued server commands in the background
+
+        Polls the management command queue and runs the tasks associated. Right now this
+        is done in a while True loop. We may want to move this to a context aware cancel
+        at some point rather than a simple while True.
+
+        Commands are expected to provide server_id, user_id, and command keys. Backup
+        commands also use action_id. If a queued command references a server that is no
+        longer loaded, the command is logged and discarded.
+
+        Returns:
+            None
+        """
         while True:
             # select any commands waiting to be processed
             command_log.debug(
                 "Queue currently has "
                 f"{self.controller.management.command_queue.qsize()} queued commands."
             )
-            if not self.controller.management.command_queue.empty():
-                command_log.info(
-                    "Current queued commands: "
-                    f"{list(self.controller.management.command_queue.queue)}"
+            # Unwrap indentation block
+            if self.controller.management.command_queue.empty():
+                time.sleep(1)
+                continue
+
+            command_log.info(
+                "Current queued commands: "
+                f"{list(self.controller.management.command_queue.queue)}"
+            )
+            cmd = self.controller.management.command_queue.get()
+            try:
+                svr = self.controller.servers.get_server_instance_by_id(
+                    cmd["server_id"]
                 )
-                cmd = self.controller.management.command_queue.get()
-                try:
-                    svr = self.controller.servers.get_server_instance_by_id(
-                        cmd["server_id"]
-                    )
-                except:
-                    logger.error(
-                        f"Server value {cmd['server_id']} requested does not exist! "
-                        "Purging item from waiting commands."
-                    )
-                    continue
+            # get_server_instance can raise ValueError when no loaded server matches
+            # given server ID. Narrowed scope from just a bare except.
+            except ValueError:
+                logger.error(
+                    f"Server value {cmd['server_id']} requested does not exist! "
+                    "Purging item from waiting commands."
+                )
+                continue
 
-                user_id = cmd["user_id"]
-                command = cmd["command"]
-
-                if command == "start_server":
+            user_id = cmd["user_id"]
+            command = cmd["command"]
+            match command:
+                case "start_server":
                     svr.run_threaded_server(user_id)
-
-                elif command == "stop_server":
+                case "stop_server":
                     svr.stop_threaded_server()
-
-                elif command == "restart_server":
+                case "restart_server":
                     svr.restart_threaded_server(user_id)
-
-                elif command == "kill_server":
+                case "kill_server":
                     try:
                         svr.kill()
                         time.sleep(5)
@@ -140,32 +188,53 @@ class TasksManager:
                         logger.error(
                             f"Could not find PID for requested termsig. Full error: {e}"
                         )
-
-                elif command == "backup_server":
+                case "backup_server":
                     try:
                         svr.server_backup_threader(cmd["action_id"])
                     except (KeyError, DoesNotExist) as why:
                         logger.error(
-                            "Failed to run server backup on schedule with error %s", why
+                            "Failed to run server backup on schedule with error %s",
+                            why,
                         )
-
-                elif command == "update_executable":
+                case "update_executable":
                     svr.server_upgrade()
-                else:
+                case _:
                     svr.send_command(command)
 
             time.sleep(1)
 
-    def _main_graceful_exit(self):
+    def _main_graceful_exit(self) -> None:
+        """Shutdown all servers and remove all temporary/runtime files
+
+        Removes the session lock file, sends the call to stop all servers, and delete
+        all temporary files and directories. This function also sends the shutdown
+        messages to the log and console. This function also sets main_thread_exiting to
+        True.
+
+        Returns:
+            None
+        """
         try:
             os.remove(self.helper.session_file)
+        except OSError as why:
+            logger.warning(
+                f"Caught error deleting session file during shutdown: {why}",
+                exc_info=True,
+            )
+
+        # Shutting down servers is capable of throwing many different errors. This may
+        # need to be handled in subclasses rather than here. A quick review of sub-calls
+        # shows ValueError, RuntimeError, BrokenPipeError, and OSError are all
+        # possible.
+        try:
             self.controller.servers.stop_all_servers()
         except:
             logger.info("Caught error during shutdown", exc_info=True)
+
         try:
             temp_dir = os.path.join(self.controller.project_root, "temp")
             FileHelpers.del_dirs(temp_dir)
-        except:
+        except OSError:
             logger.info(
                 "Caught error during shutdown - "
                 "unable to delete files from Crafty Temp Dir",
@@ -205,13 +274,14 @@ class TasksManager:
         Console.info("Launching realtime thread...")
         self.realtime_thread.start()
 
-    def scheduler_thread(self):
-        schedules = HelpersManagement.get_schedules_enabled()
-        self.scheduler.add_listener(self.schedule_watcher, mask=EVENT_JOB_EXECUTED)
-        self.scheduler.start()
-        self.check_for_updates()
+    def add_scheduler_jobs(self) -> None:
+        """Helper function for scheduler_thread to add jobs to schedule
+
+        Functionality used to be part of scheduler_thread. Pulled this out to simplify
+        that function.
+        """
         self.scheduler.add_job(
-            self.check_for_updates,
+            self.crafty_maintenance,
             "interval",
             hours=12,
             id="update_watcher",
@@ -238,116 +308,164 @@ class TasksManager:
             id="passkey_challenge_purge",
             start_date=datetime.datetime.now(),
         )
-        # self.scheduler.add_job(
-        #    self.scheduler.print_jobs, "interval", seconds=10, id="-1"
-        # )
+
+    def _add_scheduler_command_job(
+        self,
+        sch_id: int,
+        command_data: QueuedCommandData,
+        interval: int | str,
+        interval_type: str,
+        start_time: str,
+        cron_string: str,
+    ) -> Job:
+        """Add a queue_command job to APScheduler from normalized schedule values.
+
+        The caller is responsible for deciding whether reaction or unsupported
+        schedule types should be skipped, and for handling any exceptions raised
+        while creating the scheduler job.
+        """
+        command_args = [command_data]
+        if cron_string != "":
+            return cast(
+                Job,
+                self.scheduler.add_job(
+                    self.controller.management.queue_command,
+                    CronTrigger.from_crontab(cron_string, timezone=str(self.tz)),
+                    id=str(sch_id),
+                    args=command_args,
+                ),
+            )
+
+        trigger = "interval"
+        trigger_kwargs: dict[str, Any] = {interval_type: int(interval)}
+
+        if interval_type == "days":
+            curr_time = start_time.split(":")
+            trigger = "cron"
+            trigger_kwargs = {
+                "day": f"*/{interval}",
+                "hour": curr_time[0],
+                "minute": curr_time[1],
+            }
+
+        return cast(
+            Job,
+            self.scheduler.add_job(
+                self.controller.management.queue_command,
+                trigger,
+                id=str(sch_id),
+                args=command_args,
+                **trigger_kwargs,
+            ),
+        )
+
+    def _add_db_schedule(self, schedule: Schedules, system_user_id: int) -> Job | None:
+        """Add a persisted schedule to APScheduler if its trigger is supported.
+
+        Returns:
+            Job added to scheduler if the job is not a reaction task
+            None if the requested scheduled task is a reaction task
+        """
+        schedule_id = cast(int, schedule.schedule_id)
+        interval_value = cast(int | str, schedule.interval)
+        interval_type = cast(str, schedule.interval_type)
+        cron_string = cast(str, schedule.cron_string)
+
+        if interval_value == "reaction":
+            return None
+
+        command_data: QueuedCommandData = {
+            "server_id": schedule.server_id.server_id,
+            "user_id": system_user_id,
+            "command": cast(str | None, schedule.command),
+            "action_id": cast(str | None, schedule.action_id),
+        }
+        if cron_string != "":
+            try:
+                return self._add_scheduler_command_job(
+                    schedule_id,
+                    command_data,
+                    interval_value,
+                    interval_type,
+                    cast(str, schedule.start_time),
+                    cron_string,
+                )
+            except Exception as e:
+                Console.error(f"Failed to schedule task with error: {e}.")
+                Console.warning(FAILED_DB_IMPORT_MESSAGE)
+                logger.error(f"Failed to schedule task with error: {e}.")
+                logger.warning(FAILED_DB_IMPORT_MESSAGE)
+                # remove items from DB if task fails to add to apscheduler
+                self.controller.management_helper.delete_scheduled_task(schedule_id)
+                return None
+
+        if interval_type not in {"hours", "minutes", "days"}:
+            logger.warning(
+                "Skipping schedule %s with unsupported interval_type %r",
+                schedule_id,
+                interval_type,
+            )
+            return None
+
+        return self._add_scheduler_command_job(
+            schedule_id,
+            command_data,
+            interval_value,
+            interval_type,
+            cast(str, schedule.start_time),
+            cron_string,
+        )
+
+    def scheduler_thread(self) -> None:
+        """Gets list of all scheduled tasks and adds them to the schedule.
+
+        Parses the interval of each task and adds them to the scheduler.
+
+        Returns:
+            None
+        """
+        schedules = HelpersManagement.get_schedules_enabled()
+        self.scheduler.add_listener(self.schedule_watcher, mask=EVENT_JOB_EXECUTED)
+        self.scheduler.start()
+        self.crafty_maintenance()
+        self.add_scheduler_jobs()
+        system_user_id = self.users_controller.get_id_by_name("system")
 
         # load schedules from DB
         for schedule in schedules:
-            if schedule.interval != "reaction":
-                new_job = "error"
-                if schedule.cron_string != "":
-                    try:
-                        new_job = self.scheduler.add_job(
-                            self.controller.management.queue_command,
-                            CronTrigger.from_crontab(
-                                schedule.cron_string, timezone=str(self.tz)
-                            ),
-                            id=str(schedule.schedule_id),
-                            args=[
-                                {
-                                    "server_id": schedule.server_id.server_id,
-                                    "user_id": self.users_controller.get_id_by_name(
-                                        "system"
-                                    ),
-                                    "command": schedule.command,
-                                    "action_id": schedule.action_id,
-                                }
-                            ],
-                        )
-                    except Exception as e:
-                        new_job = "error"
-                        Console.error(f"Failed to schedule task with error: {e}.")
-                        Console.warning("Removing failed task from DB.")
-                        logger.error(f"Failed to schedule task with error: {e}.")
-                        logger.warning("Removing failed task from DB.")
-                        # remove items from DB if task fails to add to apscheduler
-                        self.controller.management_helper.delete_scheduled_task(
-                            schedule.schedule_id
-                        )
-                else:
-                    if schedule.interval_type == "hours":
-                        new_job = self.scheduler.add_job(
-                            self.controller.management.queue_command,
-                            "interval",
-                            hours=int(schedule.interval),
-                            id=str(schedule.schedule_id),
-                            args=[
-                                {
-                                    "server_id": schedule.server_id.server_id,
-                                    "user_id": self.users_controller.get_id_by_name(
-                                        "system"
-                                    ),
-                                    "command": schedule.command,
-                                    "action_id": schedule.action_id,
-                                }
-                            ],
-                        )
-                    elif schedule.interval_type == "minutes":
-                        new_job = self.scheduler.add_job(
-                            self.controller.management.queue_command,
-                            "interval",
-                            minutes=int(schedule.interval),
-                            id=str(schedule.schedule_id),
-                            args=[
-                                {
-                                    "server_id": schedule.server_id.server_id,
-                                    "user_id": self.users_controller.get_id_by_name(
-                                        "system"
-                                    ),
-                                    "command": schedule.command,
-                                    "action_id": schedule.action_id,
-                                }
-                            ],
-                        )
-                    elif schedule.interval_type == "days":
-                        curr_time = schedule.start_time.split(":")
-                        new_job = self.scheduler.add_job(
-                            self.controller.management.queue_command,
-                            "cron",
-                            day="*/" + str(schedule.interval),
-                            hour=curr_time[0],
-                            minute=curr_time[1],
-                            id=str(schedule.schedule_id),
-                            args=[
-                                {
-                                    "server_id": schedule.server_id.server_id,
-                                    "user_id": self.users_controller.get_id_by_name(
-                                        "system"
-                                    ),
-                                    "command": schedule.command,
-                                    "action_id": schedule.action_id,
-                                }
-                            ],
-                        )
-                if new_job != "error":
-                    task = self.controller.management.get_scheduled_task_model(
-                        int(new_job.id)
+            new_job = self._add_db_schedule(schedule, system_user_id)
+            if new_job is None:
+                continue
+
+            task = self.controller.management.get_scheduled_task_model(int(new_job.id))
+            self.controller.management.update_scheduled_task(
+                task.schedule_id,
+                {
+                    "next_run": str(
+                        new_job.next_run_time.strftime(SCHEDULE_DATE_STRING_FORMAT)
                     )
-                    self.controller.management.update_scheduled_task(
-                        task.schedule_id,
-                        {
-                            "next_run": str(
-                                new_job.next_run_time.strftime("%m/%d/%Y, %H:%M:%S")
-                            )
-                        },
-                    )
+                },
+            )
         jobs = self.scheduler.get_jobs()
         logger.info("Loaded schedules. Current enabled schedules: ")
         for item in jobs:
             logger.info(f"JOB: {item}")
 
-    def schedule_job(self, job_data):
+    def schedule_job(self, job_data: ScheduleJobData) -> int | None:
+        """Create a new persisted schedule and add it to schedule
+
+        Unlike scheduler_thread, which reloads existing enabled schedules from the
+        database during startup, this method handles a single new schedule payload. It
+        creates the database row first, then immediately adds the schedule.
+
+        Args:
+            job_data: Validated schedule payload for a newly created task.
+
+        Returns:
+            The schedule ID when an enabled non-reaction task is successfully
+            scheduled. Returns None for disabled tasks, reaction tasks, and
+            schedule submissions that fail while being added to APScheduler.
+        """
         sch_id = HelpersManagement.create_scheduled_task(
             job_data["server_id"],
             job_data["action"],
@@ -373,105 +491,61 @@ class TasksManager:
             HelpersManagement.update_scheduled_task(sch_id, {"parent": None})
 
         # Check to see if it's enabled and is not a chain reaction.
-        if job_data["enabled"] and job_data["interval_type"] != "reaction":
-            # Lets make sure this can not be mistaken for a reaction
-            job_data["parent"] = None
-            new_job = "error"
-            if job_data["cron_string"] != "":
-                try:
-                    new_job = self.scheduler.add_job(
-                        self.controller.management.queue_command,
-                        CronTrigger.from_crontab(
-                            job_data["cron_string"], timezone=str(self.tz)
-                        ),
-                        id=str(sch_id),
-                        args=[
-                            {
-                                "server_id": job_data["server_id"],
-                                "user_id": self.users_controller.get_id_by_name(
-                                    "system"
-                                ),
-                                "command": job_data["command"],
-                                "action_id": job_data.get("action_id", None),
-                            }
-                        ],
-                    )
-                except Exception as e:
-                    new_job = "error"
-                    Console.error(f"Failed to schedule task with error: {e}.")
-                    Console.warning("Removing failed task from DB.")
-                    logger.error(f"Failed to schedule task with error: {e}.")
-                    logger.warning("Removing failed task from DB.")
-                    # remove items from DB if task fails to add to apscheduler
-                    self.controller.management_helper.delete_scheduled_task(sch_id)
-            else:
-                if job_data["interval_type"] == "hours":
-                    new_job = self.scheduler.add_job(
-                        self.controller.management.queue_command,
-                        "interval",
-                        hours=int(job_data["interval"]),
-                        id=str(sch_id),
-                        args=[
-                            {
-                                "server_id": job_data["server_id"],
-                                "user_id": self.users_controller.get_id_by_name(
-                                    "system"
-                                ),
-                                "command": job_data["command"],
-                                "action_id": job_data.get("action_id", None),
-                            }
-                        ],
-                    )
-                elif job_data["interval_type"] == "minutes":
-                    new_job = self.scheduler.add_job(
-                        self.controller.management.queue_command,
-                        "interval",
-                        minutes=int(job_data["interval"]),
-                        id=str(sch_id),
-                        args=[
-                            {
-                                "server_id": job_data["server_id"],
-                                "user_id": self.users_controller.get_id_by_name(
-                                    "system"
-                                ),
-                                "command": job_data["command"],
-                                "action_id": job_data.get("action_id", None),
-                            }
-                        ],
-                    )
-                elif job_data["interval_type"] == "days":
-                    curr_time = job_data["start_time"].split(":")
-                    new_job = self.scheduler.add_job(
-                        self.controller.management.queue_command,
-                        "cron",
-                        day="*/" + str(job_data["interval"]),
-                        hour=curr_time[0],
-                        minute=curr_time[1],
-                        id=str(sch_id),
-                        args=[
-                            {
-                                "server_id": job_data["server_id"],
-                                "user_id": self.users_controller.get_id_by_name(
-                                    "system"
-                                ),
-                                "command": job_data["command"],
-                                "action_id": job_data.get("action_id", None),
-                            }
-                        ],
-                    )
-            logger.info("Added job. Current enabled schedules: ")
-            jobs = self.scheduler.get_jobs()
-            if new_job != "error":
-                task = self.controller.management.get_scheduled_task_model(
-                    int(new_job.id)
+        if not job_data["enabled"] or job_data["interval_type"] == "reaction":
+            return None
+
+        # Let's make sure this can not be mistaken for a reaction
+        job_data["parent"] = None
+        system_user_id = self.users_controller.get_id_by_name("system")
+        command_data: QueuedCommandData = {
+            "server_id": job_data["server_id"],
+            "user_id": system_user_id,
+            "command": job_data["command"],
+            "action_id": job_data.get("action_id", None),
+        }
+        new_job = "error"
+        if job_data["cron_string"] != "":
+            try:
+                new_job = self._add_scheduler_command_job(
+                    sch_id,
+                    command_data,
+                    job_data["interval"],
+                    job_data["interval_type"],
+                    job_data["start_time"],
+                    job_data["cron_string"],
                 )
-                self.controller.management.update_scheduled_task(
-                    task.schedule_id,
-                    {"next_run": new_job.next_run_time.strftime("%m/%d/%Y, %H:%M:%S")},
+            except Exception as e:
+                new_job = "error"
+                Console.error(f"Failed to schedule task with error: {e}.")
+                Console.warning(FAILED_DB_IMPORT_MESSAGE)
+                logger.error(f"Failed to schedule task with error: {e}.")
+                logger.warning(FAILED_DB_IMPORT_MESSAGE)
+                # remove items from DB if task fails to add to apscheduler
+                self.controller.management_helper.delete_scheduled_task(sch_id)
+        else:
+            if job_data["interval_type"] in {"hours", "minutes", "days"}:
+                new_job = self._add_scheduler_command_job(
+                    sch_id,
+                    command_data,
+                    job_data["interval"],
+                    job_data["interval_type"],
+                    job_data["start_time"],
+                    job_data["cron_string"],
                 )
+        logger.info("Added job. Current enabled schedules: ")
+        jobs = self.scheduler.get_jobs()
+        if new_job == "error":
             for item in jobs:
                 logger.info(f"JOB: {item}")
-            return task.schedule_id
+            return None
+
+        self.controller.management.update_scheduled_task(
+            sch_id,
+            {"next_run": new_job.next_run_time.strftime(SCHEDULE_DATE_STRING_FORMAT)},
+        )
+        for item in jobs:
+            logger.info(f"JOB: {item}")
+        return sch_id
 
     def remove_all_server_tasks(self, server_id):
         schedules = HelpersManagement.get_schedules_by_server(server_id)
@@ -496,6 +570,49 @@ class TasksManager:
                 f"that doesn't exist from active schedules."
             )
 
+    def _remove_scheduler_job_if_present(
+        self, sch_id: int, missing_log_message: str | None = None
+    ) -> bool:
+        """Remove a scheduler job if it exists.
+
+        Returns:
+            True when the job was removed.
+            False when scheduler had no job for the provided ID.
+        """
+        try:
+            self.scheduler.remove_job(str(sch_id))
+        except JobLookupError:
+            if missing_log_message is not None:
+                logger.info(missing_log_message)
+            return False
+        return True
+
+    def _normalize_update_job_data(
+        self, sch_id: int, job_data: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """Extracted confirming of keys in dict from update_job
+
+        Returns:
+            None if dict is not sufficient for update_job
+            Dict data if all checks pass for update_job
+        """
+        required_keys = {"interval", "enabled", "cron_string", "interval_type"}
+        if required_keys.issubset(job_data):
+            return job_data
+
+        if "enabled" not in job_data:
+            return None
+
+        if job_data["enabled"] is True:
+            full_job_data = HelpersManagement.get_scheduled_task(sch_id)
+            full_job_data["server_id"] = full_job_data["server_id"]["server_id"]
+            return full_job_data
+
+        full_job_data = HelpersManagement.get_scheduled_task(sch_id)
+        if full_job_data["interval_type"] != "reaction":
+            self._remove_scheduler_job_if_present(sch_id)
+        return None
+
     def update_job(self, sch_id, job_data):
         # Checks to make sure some doofus didn't actually make the newly
         # created task a child of itself.
@@ -504,198 +621,120 @@ class TasksManager:
             job_data["parent"] = None
         HelpersManagement.update_scheduled_task(sch_id, job_data)
 
-        if not (
-            "interval" in job_data
-            and "enabled" in job_data
-            and "cron_string" in job_data
-            and "interval_type" in job_data
-        ):
-            if not "enabled" in job_data:
-                return
+        job_data = self._normalize_update_job_data(sch_id, job_data)
+        if job_data is None:
+            return
 
-            if job_data["enabled"] is True:
-                job_data = HelpersManagement.get_scheduled_task(sch_id)
-                job_data["server_id"] = job_data["server_id"]["server_id"]
-            else:
-                job = HelpersManagement.get_scheduled_task(sch_id)
-                if job["interval_type"] != "reaction":
-                    self.scheduler.remove_job(str(sch_id))
-                return
-
-        try:
-            if job_data["interval"] != "reaction":
-                self.scheduler.remove_job(str(sch_id))
-        except JobLookupError:
-            logger.info(
+        if job_data["interval"] != "reaction":
+            self._remove_scheduler_job_if_present(
+                sch_id,
                 "No job found in update job. "
-                "Assuming it was previously disabled. Starting new job."
+                "Assuming it was previously disabled. Starting new job.",
             )
 
         if job_data["enabled"] and job_data["interval"] != "reaction":
-            new_job = "error"
-            if job_data["cron_string"] != "":
-                try:
-                    new_job = self.scheduler.add_job(
-                        self.controller.management.queue_command,
-                        CronTrigger.from_crontab(
-                            job_data["cron_string"], timezone=str(self.tz)
-                        ),
-                        id=str(sch_id),
-                        args=[
-                            {
-                                "server_id": job_data["server_id"],
-                                "user_id": self.users_controller.get_id_by_name(
-                                    "system"
-                                ),
-                                "command": job_data["command"],
-                                "action_id": job_data.get("action_id", None),
-                            }
-                        ],
-                    )
-                except Exception as e:
-                    new_job = "error"
-                    Console.error(f"Failed to schedule task with error: {e}.")
-                    Console.info("Removing failed task from DB.")
-                    self.controller.management_helper.delete_scheduled_task(sch_id)
-            else:
-                if job_data["interval_type"] == "hours":
-                    new_job = self.scheduler.add_job(
-                        self.controller.management.queue_command,
-                        "cron",
-                        minute=0,
-                        hour="*/" + str(job_data["interval"]),
-                        id=str(sch_id),
-                        args=[
-                            {
-                                "server_id": job_data["server_id"],
-                                "user_id": self.users_controller.get_id_by_name(
-                                    "system"
-                                ),
-                                "command": job_data["command"],
-                                "action_id": job_data.get("action_id", None),
-                            }
-                        ],
-                    )
-                elif job_data["interval_type"] == "minutes":
-                    new_job = self.scheduler.add_job(
-                        self.controller.management.queue_command,
-                        "cron",
-                        minute="*/" + str(job_data["interval"]),
-                        id=str(sch_id),
-                        args=[
-                            {
-                                "server_id": job_data["server_id"],
-                                "user_id": self.users_controller.get_id_by_name(
-                                    "system"
-                                ),
-                                "command": job_data["command"],
-                                "action_id": job_data.get("action_id", None),
-                            }
-                        ],
-                    )
-                elif job_data["interval_type"] == "days":
-                    curr_time = job_data["start_time"].split(":")
-                    new_job = self.scheduler.add_job(
-                        self.controller.management.queue_command,
-                        "cron",
-                        day="*/" + str(job_data["interval"]),
-                        hour=curr_time[0],
-                        minute=curr_time[1],
-                        id=str(sch_id),
-                        args=[
-                            {
-                                "server_id": job_data["server_id"],
-                                "user_id": self.users_controller.get_id_by_name(
-                                    "system"
-                                ),
-                                "command": job_data["command"],
-                                "action_id": job_data.get("action_id", None),
-                            }
-                        ],
-                    )
+            command_data: QueuedCommandData = {
+                "server_id": job_data["server_id"],
+                "user_id": self.users_controller.get_id_by_name("system"),
+                "command": job_data["command"],
+                "action_id": job_data.get("action_id", None),
+            }
+            try:
+                new_job = self._add_scheduler_command_job(
+                    sch_id,
+                    command_data,
+                    job_data["interval"],
+                    job_data["interval_type"],
+                    job_data["start_time"],
+                    job_data["cron_string"],
+                )
+            except Exception as e:
+                new_job = "error"
+                Console.error(f"Failed to schedule task with error: {e}.")
+                Console.info(FAILED_DB_IMPORT_MESSAGE)
+                self.controller.management_helper.delete_scheduled_task(sch_id)
             if new_job != "error":
                 task = self.controller.management.get_scheduled_task_model(
                     int(new_job.id)
                 )
                 self.controller.management.update_scheduled_task(
                     task.schedule_id,
-                    {"next_run": new_job.next_run_time.strftime("%m/%d/%Y, %H:%M:%S")},
+                    {
+                        "next_run": new_job.next_run_time.strftime(
+                            SCHEDULE_DATE_STRING_FORMAT
+                        )
+                    },
                 )
         else:
-            try:
-                self.scheduler.get_job(str(sch_id))
-                self.scheduler.remove_job(str(sch_id))
-            except:
-                logger.info(
-                    f"APScheduler found no scheduled job on schedule update for "
-                    f"schedule with id: {sch_id} Assuming it was already disabled."
-                )
+            self._remove_scheduler_job_if_present(
+                sch_id,
+                f"APScheduler found no scheduled job on schedule update for "
+                f"schedule with id: {sch_id} Assuming it was already disabled.",
+            )
 
     def schedule_watcher(self, event):
-        if not event.exception:
-            if str(event.job_id).isnumeric():
-                task = self.controller.management.get_scheduled_task_model(
-                    int(event.job_id)
-                )
-                self.controller.management.add_to_audit_log_raw(
-                    "system",
-                    HelperUsers.get_user_id_by_name("system"),
-                    task.server_id,
-                    f"Task with id {task.schedule_id} completed successfully",
-                    "127.0.0.1",
-                )
-                # check if the task is a single run.
-                if task.one_time:
-                    self.remove_job(task.schedule_id)
-                    logger.info("one time task detected. Deleting...")
-                elif task.interval_type != "reaction":
-                    self.controller.management.update_scheduled_task(
-                        task.schedule_id,
-                        {
-                            "next_run": self.scheduler.get_job(
-                                event.job_id
-                            ).next_run_time.strftime("%m/%d/%Y, %H:%M:%S")
-                        },
-                    )
-                # check for any child tasks for this. It's kind of backward,
-                # but this makes DB management a lot easier. One to one
-                # instead of one to many.
-                for schedule in HelpersManagement.get_child_schedules_by_server(
-                    task.schedule_id, task.server_id
-                ):
-                    # event job ID's are strings so we need to look at
-                    # this as the same data type.
-                    if (
-                        str(schedule.parent) == str(event.job_id)
-                        and schedule.interval_type == "reaction"
-                    ):
-                        if schedule.enabled:
-                            delaytime = datetime.datetime.now() + datetime.timedelta(
-                                seconds=schedule.delay
-                            )
-                            self.scheduler.add_job(
-                                self.controller.management.queue_command,
-                                "date",
-                                run_date=delaytime,
-                                id=str(schedule.schedule_id),
-                                args=[
-                                    {
-                                        "server_id": schedule.server_id.server_id,
-                                        "user_id": self.users_controller.get_id_by_name(
-                                            "system"
-                                        ),
-                                        "command": schedule.command,
-                                        "action_id": schedule.action_id,
-                                    }
-                                ],
-                            )
-            else:
-                logger.info(
-                    "Event job ID is not numerical. Assuming it's stats "
-                    "- not stored in DB. Moving on."
-                )
-        else:
+        if event.exception:
             logger.error(f"Task failed with error: {event.exception}")
+            return
+
+        if not str(event.job_id).isnumeric():
+            logger.info(
+                "Event job ID is not numerical. Assuming it's stats "
+                "- not stored in DB. Moving on."
+            )
+            return
+
+        task = self.controller.management.get_scheduled_task_model(int(event.job_id))
+        self.controller.management.add_to_audit_log_raw(
+            "system",
+            HelperUsers.get_user_id_by_name("system"),
+            task.server_id,
+            f"Task with id {task.schedule_id} completed successfully",
+            "127.0.0.1",
+        )
+        # check if the task is a single run.
+        if task.one_time:
+            self.remove_job(task.schedule_id)
+            logger.info("one time task detected. Deleting...")
+        elif task.interval_type != "reaction":
+            self.controller.management.update_scheduled_task(
+                task.schedule_id,
+                {
+                    "next_run": self.scheduler.get_job(
+                        event.job_id
+                    ).next_run_time.strftime(SCHEDULE_DATE_STRING_FORMAT)
+                },
+            )
+        # check for any child tasks for this. It's kind of backward,
+        # but this makes DB management a lot easier. One to one
+        # instead of one to many.
+        for schedule in HelpersManagement.get_child_schedules_by_server(
+            task.schedule_id, task.server_id
+        ):
+            # event job IDs are strings so we need to look at
+            # this as the same data type.
+            if (
+                str(schedule.parent) == str(event.job_id)
+                and schedule.interval_type == "reaction"
+                and schedule.enabled
+            ):
+                delay_time = datetime.datetime.now() + datetime.timedelta(
+                    seconds=schedule.delay
+                )
+                self.scheduler.add_job(
+                    self.controller.management.queue_command,
+                    "date",
+                    run_date=delay_time,
+                    id=str(schedule.schedule_id),
+                    args=[
+                        {
+                            "server_id": schedule.server_id.server_id,
+                            "user_id": self.users_controller.get_id_by_name("system"),
+                            "command": schedule.command,
+                            "action_id": schedule.action_id,
+                        }
+                    ],
+                )
 
     def start_stats_recording(self):
         stats_update_frequency = self.helper.get_setting(
@@ -774,7 +813,10 @@ class TasksManager:
                                 "mounts": self.helper.get_setting("monitored_mounts"),
                             },
                         )
-                    except:
+                    # A quick review of the calls to the disk and mounts is that
+                    # upstream catches any OS probe errors. We should only need to catch
+                    # malformed JSON or missing keys that we are selecting for here.
+                    except (JSONDecodeError, AttributeError, TypeError):
                         WebSocketManager().broadcast_page(
                             "/panel/dashboard",
                             "update_host_stats",
@@ -790,7 +832,80 @@ class TasksManager:
                         )
             time.sleep(1)
 
-    def check_for_updates(self):
+    def crafty_maintenance(self) -> None:
+        """Maintenance tasks for Crafty, runs every 12 hours and on startup
+
+        Runs: Update check, Gravitar PFP update, and clearing of import temp dir.
+
+        Returns:
+            None
+        """
+        self.check_for_updates()
+        self.refresh_gravatar()
+        self.clean_import_directory()
+
+    def refresh_gravatar(self) -> None:
+        """Updates user Gravatar PFPs"""
+        logger.info("Refreshing Gravatar PFPs...")
+        for user in HelperUsers.get_all_users():
+            if user.email:
+                HelperUsers.update_user(
+                    user.id, {"pfp": self.helper.get_gravatar_image(user.email)}
+                )
+
+    def clean_import_directory(self) -> None:
+        """Removes all temporary files in Crafty
+
+        Will check for OSError on removal but will not raise errors, only log them.
+
+        Returns:
+            None
+        """
+        # Search for old files in imports
+        self.helper.ensure_dir_exists(
+            os.path.join(self.controller.project_root, "import", "upload")
+        )
+        self.helper.ensure_dir_exists(
+            os.path.join(self.controller.project_root, "temp")
+        )
+
+        # Setup pathlib objects to help iterate over files
+        removals: List[Path] = []
+        temp_path = Path(self.controller.project_root, "temp")
+        import_path = Path(self.controller.project_root, "import", "upload")
+
+        # Check temp path for files
+        for path in temp_path.iterdir():
+            if self.helper.is_file_older_than_x_days(path):
+                removals.append(path)
+
+        # Check import path for files
+        for path in import_path.iterdir():
+            try:
+                path = Path(self.helper.validate_traversal(import_path, path))
+            except ValueError:
+                logger.error("Traversal detected while deleting import file %s", path)
+                continue
+
+            if self.helper.is_file_older_than_x_days(path):
+                removals.append(path)
+
+        # Remove everything found.
+        for path_to_remove in removals:
+            try:
+                if path_to_remove.is_dir():
+                    FileHelpers.del_dirs(path_to_remove)
+                else:
+                    path_to_remove.unlink()
+            except OSError as why:
+                logger.error(f"Error removing file {path_to_remove}: {why}.")
+
+    def check_for_updates(self) -> None:
+        """Checks for updates to crafty
+
+        Returns:
+            None
+        """
         logger.info("Checking for Crafty updates...")
         self.helper.update_available = self.helper.check_remote_version()
         remote = self.helper.update_available
@@ -808,42 +923,6 @@ class TasksManager:
                 "desc": "Release notes are available by clicking this notification.",
                 "link": "https://gitlab.com/crafty-controller/crafty-4/-/releases",
             }
-        logger.info("Refreshing Gravatar PFPs...")
-        for user in HelperUsers.get_all_users():
-            if user.email:
-                HelperUsers.update_user(
-                    user.id, {"pfp": self.helper.get_gravatar_image(user.email)}
-                )
-        # Search for old files in imports
-        self.helper.ensure_dir_exists(
-            os.path.join(self.controller.project_root, "import", "upload")
-        )
-        self.helper.ensure_dir_exists(
-            os.path.join(self.controller.project_root, "temp")
-        )
-        for file in os.listdir(os.path.join(self.controller.project_root, "temp")):
-            if self.helper.is_file_older_than_x_days(
-                os.path.join(self.controller.project_root, "temp", file)
-            ):
-                try:
-                    os.remove(os.path.join(file))
-                except FileNotFoundError:
-                    logger.debug("Could not clear out file from temp directory")
-        import_path = Path(self.controller.project_root, "import", "upload")
-        for file in os.listdir(import_path):
-            file_path = Path(import_path, file).resolve(strict=True)
-            if not self.helper.validate_traversal(import_path, file_path):
-                logger.error(
-                    "Traversal detected while deleting import file %s", file_path
-                )
-            if self.helper.is_file_older_than_x_days(file_path):
-                try:
-                    if Path(file_path).is_dir():
-                        FileHelpers.del_dirs(file_path)
-                    else:
-                        FileHelpers.del_file(file_path)
-                except FileNotFoundError:
-                    logger.debug("Could not clear out file from import directory")
 
     def log_watcher(self):
         self.check_for_old_logs()
@@ -886,6 +965,11 @@ class TasksManager:
                         log_file_path, logs_delete_after
                     ):
                         os.remove(log_file_path)
+        # A quick look at the sub-calls looks like there are a lot of options for
+        # possible exceptions here. I see TypeError, AttributeError, FileNotFoundError,
+        # NotADirectoryError, etc. For the current state in Crafty we'll need to leave
+        # this as a bare except. We'll need to implement better error handling in lower
+        # level call areas of Crafty to reasonably narrow this scope.
         except:
             logger.debug(
                 "Unable to find project root."

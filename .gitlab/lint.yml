@@ -3,7 +3,7 @@
 # YAML Linting [https://yamllint.readthedocs.io/en/latest/]
 yamllint:
   stage: lint
-  image: registry.gitlab.com/pipeline-components/yamllint:latest
+  image: registry.gitlab.com/pipeline-components/yamllint:edge
   tags:
     - saas-linux-medium-amd64
   rules:
@@ -20,7 +20,7 @@ yamllint:
 # JSON Linting [https://github.com/zaach/jsonlint]
 jsonlint:
   stage: lint
-  image: registry.gitlab.com/pipeline-components/jsonlint:latest
+  image: registry.gitlab.com/pipeline-components/jsonlint:edge
   tags:
     - saas-linux-medium-amd64
   rules:
@@ -39,7 +39,7 @@ jsonlint:
 # Code Format Checking [https://black.readthedocs.io/en/stable/]
 black:
   stage: lint
-  image: registry.gitlab.com/pipeline-components/black:latest
+  image: registry.gitlab.com/pipeline-components/black:edge
   tags:
     - saas-linux-medium-amd64
   rules:
@@ -56,7 +56,7 @@ black:
 # Code Climate/Quality Checking [https://pylint.pycqa.org/en/latest/]
 pylint:
   stage: lint
-  image: registry.gitlab.com/pipeline-components/pylint:latest
+  image: registry.gitlab.com/pipeline-components/pylint:edge
   tags:
     - saas-linux-medium-amd64
   rules:
@@ -69,7 +69,7 @@ pylint:
         $CI_PIPELINE_SOURCE == "merge_request_event"'
   before_script:
     - apk update
-    - apk add gcc python3-dev linux-headers build-base rust cargo
+    - apk add --no-cache gcc python3-dev linux-headers build-base rust cargo
     - pip3 install --no-cache-dir -r requirements.txt
   script:
     - pylint --exit-zero --load-plugins=pylint_gitlab --output-format=gitlab-codeclimate:codeclimate.json $(find -type f -name "*.py" ! -path "**/.venv/**" ! -path "**/app/migrations/**")

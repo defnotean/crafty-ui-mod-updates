@@ -1055,6 +1055,10 @@
     padding-bottom: 8px;
   }
 
+  #servers_table {
+    min-width: 100%;
+  }
+
   @media (max-width: 992px) {
     #servers_table {
       min-width: 750px;
@@ -1133,7 +1137,8 @@
   $(document).ready(function () {
     let servers_table = $('#servers_table').DataTable({
       "ordering": false, // false to disable sorting (or any other option)
-      "paging": false
+      "paging": false,
+      "autoWidth": false
     });
     // DataTables sets overflow:hidden on the wrapper after init completes.
     // Defer override so table-responsive can provide horizontal scrolling.

@@ -4,8 +4,8 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Awaitable, Callable, Optional
 import aiofiles
 from tornado.iostream import StreamClosedError
+from app.classes.models.crafty_permissions import EnumPermissionsCrafty
 from app.classes.web.base_handler import BaseHandler
-
 
 logger = logging.getLogger(__name__)
 executor = ThreadPoolExecutor(max_workers=4)
@@ -88,3 +88,27 @@ class BaseApiHandler(BaseHandler):
                     "error_data": f"ERROR: {e}",
                 },
             )
+
+    def can_modify_user(
+        self, exec_user_crafty_permissions: list, auth_data: tuple, user_id: int | str
+    ) -> bool:
+        """Checks if exec user has permissions to modify target user
+
+        Args:
+            exec_user_crafty_permissions (list): Permissions of exec user returned
+            from auth check
+            auth_data (dict): Authenticated user information from auth check
+            user_id (int): Target user ID
+
+        Returns:
+            bool: Returns true if user can edit target user
+        """
+        if auth_data[4]["user_id"] == user_id or str(user_id) == "@me":
+            return True
+        if auth_data[4]["superuser"]:
+            return True
+        if EnumPermissionsCrafty.USER_CONFIG in exec_user_crafty_permissions and int(
+            user_id
+        ) in self.controller.users.get_managed_users_ids(auth_data[4]["user_id"]):
+            return True
+        return False

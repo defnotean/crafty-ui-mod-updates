@@ -278,14 +278,11 @@ class BackupManager:
         self.helper.ensure_dir_exists(backup_location)
 
         try:
-            backup_filename = (
-                f"{backup_location}/"
-                f"""{
+            backup_filename = f"{backup_location}/" f"""{
                     datetime.datetime.now()
                     .astimezone(self.tz)
                     .strftime("%Y-%m-%d_%H-%M-%S")
                 }"""
-            )
             logger.info(
                 f"Creating backup of server {server.name}"
                 f" (ID#{server.server_id}, path={server.server_path}) "

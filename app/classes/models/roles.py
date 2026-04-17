@@ -8,6 +8,7 @@ from peewee import (
     DateTimeField,
     IntegerField,
     BooleanField,
+    SQL,
 )
 from playhouse.shortcuts import model_to_dict
 
@@ -88,8 +89,22 @@ class HelperRoles:
         return role_id
 
     @staticmethod
-    def update_role(role_id, up_data):
-        return Roles.update(up_data).where(Roles.role_id == role_id).execute()
+    def update_role(role_id: str | int, up_data: t.Mapping[str, t.Any]) -> int:
+        """Update a role and refresh last_update in SQLite.
+
+        Args:
+            role_id: The ID of the role to update.
+            up_data: Column values to update on the role row. Any provided last_update
+                value is ignored so the timestamp is always computed in the database.
+
+        Returns:
+            The number of updated rows.
+        """
+        update_data = dict(up_data)
+        update_data["last_update"] = SQL(
+            "strftime('%m/%d/%Y, %H:%M:%S', 'now', 'localtime')"
+        )
+        return Roles.update(update_data).where(Roles.role_id == role_id).execute()
 
     def remove_role(self, role_id):
         return Roles.delete().where(Roles.role_id == role_id).execute()

@@ -6,7 +6,6 @@ from app.classes.models.server_permissions import EnumPermissionsServer
 from app.classes.shared.server import ServerOutBuf
 from app.classes.web.base_api_handler import BaseApiHandler
 
-
 logger = logging.getLogger(__name__)
 
 ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")

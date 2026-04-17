@@ -222,7 +222,7 @@ class ApiRolesRoleIndexHandler(BaseApiHandler):
             manager = None
 
         try:
-            self.controller.roles.update_role_advanced(
+            self.controller.roles.update_role(
                 role_id,
                 data.get("name", None),
                 data.get("servers", None),

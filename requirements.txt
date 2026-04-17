@@ -15,7 +15,7 @@ nh3==0.2.14
 orjson==3.11.4
 packaging==23.2
 peewee==3.13
-pillow==10.4.0
+pillow==12.2.0
 prometheus-client==0.17.1
 psutil==5.9.5
 pyjwt==2.8.0

@@ -1,17 +1,19 @@
 import logging
 import typing as t
+from collections.abc import Collection
 from enum import Enum
+
 from peewee import (
-    ForeignKeyField,
+    JOIN,
     CharField,
     CompositeKey,
-    JOIN,
+    ForeignKeyField,
 )
 
 from app.classes.models.base_model import BaseModel
-from app.classes.models.servers import Servers
 from app.classes.models.roles import Roles
-from app.classes.models.users import UserRoles, HelperUsers, ApiKeys, Users
+from app.classes.models.servers import Servers
+from app.classes.models.users import ApiKeys, HelperUsers, UserRoles, Users
 from app.classes.shared.permission_helper import PermissionHelper
 
 logger = logging.getLogger(__name__)
@@ -185,8 +187,23 @@ class PermissionsServers:
 
     @staticmethod
     def delete_roles_permissions(
-        role_id: t.Union[str, int], removed_servers: t.Sequence[t.Union[str, int]]
-    ):
+        role_id: str | int, removed_servers: Collection[str | int]
+    ) -> int:
+        """Delete rows from role_servers for a given row and list of server.
+
+        Can be used to delete the accesses that a role has to one or many servers. This
+        does not delete the role or servers, only the relation. Can be uses to: "remove
+        access to servers A and C from role Z."
+
+        Args:
+            role_id: The role ID of the role that is being modified.
+            removed_servers: A collection (list, set, frozenset, tuple, etc.) of servers
+                to remove access from.
+
+        Returns:
+            Number of affected rows. Meaning the number of servers that were removed
+            from this role's access.
+        """
         return (
             RoleServers.delete()
             .where(RoleServers.role_id == role_id)

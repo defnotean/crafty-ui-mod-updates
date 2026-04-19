@@ -3,7 +3,7 @@
 ### New features
 TBD
 ### Bug fixes
-TBD
+- Fix servers with registered webhooks failing to start ([Merge Request](https://gitlab.com/crafty-controller/crafty-4/-/merge_requests/1008))
 ### Tweaks
 TBD
 <br><br>

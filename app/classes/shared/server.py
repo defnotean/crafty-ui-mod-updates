@@ -48,9 +48,9 @@ logger = logging.getLogger(__name__)
 SUCCESSMSG = "SUCCESS! Forge install completed"
 
 
-def extract_backup_info(res):
+def extract_backup_info(res) -> dict:
     if not isinstance(res, dict):
-        return {}, {}
+        return {}
     return {
         "backup_name": res.get("backup_name"),
         "backup_size": str(res.get("backup_size")),

@@ -107,7 +107,7 @@
         "sendingCommand": "Komutun gönderiliyor",
         "server": "Sunucu",
         "servers": "Sunucular",
-        "size": "Sunucu Dir Boyutu",
+        "size": "Sunucu Boyutu",
         "start": "Başlat",
         "starting": "Gecikmeli Başlangıç",
         "status": "Durum",
@@ -238,7 +238,7 @@
         "passwordRecovery": "Şifre Kurtarma",
         "2faRecovery": "MFA'yı Kurtarma",
         "totp": "Doğrulayıcı Kodunu Girin",
-        "2fa": "MFA'yı buraya girin (MFA etkinse)",
+        "2fa": "(MFA etkinse)",
         "accountDisabled": "Kullanıcı hesabınız bir yönetici tarafından devre dışı bırakıldı. Daha fazla bilgi için lütfen sunucu yöneticiniz ile konuşunuz.",
         "orSeparator": "veya",
         "signInWithPasskey": "Geçiş anahtarı ile giriş yapın"

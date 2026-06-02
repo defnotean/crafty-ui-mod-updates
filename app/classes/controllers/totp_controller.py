@@ -117,9 +117,7 @@ class TOTPController:
                     # needs to ref the self var to remove expired entries
                     del self.used_totp_codes[  # pylint: disable=unnecessary-dict-index-lookup
                         key
-                    ][
-                        item
-                    ]
+                    ][item]
 
     def verify_user_totp(
         self, user_id: int, totp_id: str, totp_name: str, totp_code: str

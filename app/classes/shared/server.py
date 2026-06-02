@@ -20,6 +20,7 @@ import requests
 from tzlocal import get_localzone
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.base import JobLookupError, ConflictingIdError
+from apscheduler.triggers.cron import CronTrigger
 
 # OpenMetrics/Prometheus Imports
 from prometheus_client import CollectorRegistry, Gauge, Info
@@ -289,6 +290,80 @@ class ServerInstance:
     def reload_server_settings(self):
         server_data = HelperServers.get_server_data_by_id(self.server_id)
         self.settings = server_data
+        self.sync_auto_restart_schedule()
+
+    def get_auto_restart_job_id(self):
+        return f"{self.server_id}_auto_restart"
+
+    @staticmethod
+    def parse_auto_restart_time(time_value):
+        if not isinstance(time_value, str):
+            raise ValueError("Auto restart time must be a string")
+        time_parts = time_value.split(":")
+        if len(time_parts) != 2:
+            raise ValueError("Auto restart time must use HH:MM format")
+        hour = int(time_parts[0])
+        minute = int(time_parts[1])
+        if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+            raise ValueError("Auto restart time is outside the valid day range")
+        return hour, minute
+
+    def remove_auto_restart_schedule(self):
+        if not hasattr(self, "server_scheduler"):
+            return
+        try:
+            self.server_scheduler.remove_job(self.get_auto_restart_job_id())
+        except JobLookupError:
+            return
+
+    def sync_auto_restart_schedule(self):
+        if not hasattr(self, "server_scheduler"):
+            return
+
+        self.remove_auto_restart_schedule()
+        if not self.settings.get("auto_restart"):
+            return
+
+        restart_time = self.settings.get("auto_restart_time") or "04:00"
+        restart_timezone = self.settings.get("auto_restart_timezone") or str(self.tz)
+        try:
+            hour, minute = self.parse_auto_restart_time(restart_time)
+            timezone = ZoneInfo(restart_timezone)
+        except (ValueError, ZoneInfoNotFoundError) as why:
+            logger.error(
+                "Skipping auto restart schedule for server %s due to invalid "
+                "time/timezone: %s",
+                self.server_id,
+                why,
+            )
+            return
+
+        self.server_scheduler.add_job(
+            self.auto_restart_server,
+            CronTrigger(hour=hour, minute=minute, timezone=timezone),
+            id=self.get_auto_restart_job_id(),
+            replace_existing=True,
+        )
+        job = self.server_scheduler.get_job(self.get_auto_restart_job_id())
+        logger.info(
+            "Scheduled automatic restart for server %s at %s %s. Next run: %s",
+            self.server_id,
+            restart_time,
+            restart_timezone,
+            job.next_run_time if job else "unknown",
+        )
+
+    def auto_restart_server(self):
+        if not self.check_running():
+            logger.info(
+                "Skipping automatic restart for server %s because it is not running",
+                self.server_id,
+            )
+            return
+
+        logger.info("Automatic restart triggered for server %s", self.server_id)
+        Console.info(f"Automatic restart triggered for server {self.name}")
+        self.restart_threaded_server(HelperUsers.get_user_id_by_name("system"))
 
     def do_server_setup(self, server_data_obj):
         server_id = server_data_obj["server_id"]

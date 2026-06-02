@@ -23,6 +23,7 @@ from app.classes.controllers.roles_controller import RolesController
 from app.classes.helpers.helpers import Helpers, MASTER_CONFIG
 from app.classes.shared.main_models import DatabaseShortcuts
 from app.classes.shared.metrics_time_helper import MetricsTimeRangeHelper
+from app.classes.shared.mod_update_manager import ModUpdateManager
 from app.classes.shared.stats_helpers import StatsConverter
 from app.classes.web.base_handler import BaseHandler
 from app.classes.web.webhooks.webhook_factory import WebhookFactory
@@ -40,6 +41,7 @@ SUBPAGE_PERMS = {
     "metrics": EnumPermissionsServer.LOGS,
     "webhooks": EnumPermissionsServer.CONFIG,
     "update_center": EnumPermissionsServer.CONFIG,
+    "mods": EnumPermissionsServer.FILES,
 }
 
 SCHEDULE_AUTH_ERROR_URL = "/panel/error?error=Unauthorized access To Schedules"
@@ -592,6 +594,13 @@ class PanelHandler(BaseHandler):
                         "server_port": server_temp_obj["server_port"],
                         "logs_delete_after": server_temp_obj["logs_delete_after"],
                         "auto_start": server_temp_obj["auto_start"],
+                        "auto_restart": server_temp_obj.get("auto_restart", False),
+                        "auto_restart_time": server_temp_obj.get(
+                            "auto_restart_time", "04:00"
+                        ),
+                        "auto_restart_timezone": server_temp_obj.get(
+                            "auto_restart_timezone", "UTC"
+                        ),
                         "crash_detection": server_temp_obj["crash_detection"],
                         "show_status": server_temp_obj["show_status"],
                         "ignored_exits": server_temp_obj["ignored_exits"],
@@ -879,6 +888,17 @@ class PanelHandler(BaseHandler):
                 )
                 page_data["triggers"] = list(
                     WebhookFactory.get_monitored_events().keys()
+                )
+
+            if subpage == "mods":
+                page_data["mod_default_loader"] = ModUpdateManager.infer_loader(
+                    page_data["server_data"]
+                )
+                page_data["mod_default_game_version"] = (
+                    ModUpdateManager.infer_game_version(
+                        page_data.get("server_stats"),
+                        page_data["server_data"],
+                    )
                 )
 
             def get_banned_players_html():

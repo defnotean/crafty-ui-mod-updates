@@ -4,6 +4,7 @@ import logging
 import mimetypes
 import os
 import pathlib
+import re
 import shutil
 import ssl
 import time
@@ -582,9 +583,15 @@ class FileHelpers:
                     # Skip directory entries
                     if info.is_dir():
                         continue
-                    target = Path(destination_path, file).resolve()
+                    archive_name = self.get_archive_internal_name(
+                        file, base_include_path
+                    )
+                    safe_archive_name = self.get_safe_archive_name(archive_name)
+                    if not safe_archive_name:
+                        continue
+                    target = Path(destination_path, safe_archive_name).resolve()
                     try:
-                        self.helper.validate_traversal(destination_path, target)
+                        Helpers.validate_traversal(destination_path, target)
                     except ValueError:
                         self.send_percentage(server_users, 100, proc_id, True)
                         return logger.error("Traversal detected. Dumping out.")
@@ -592,9 +599,7 @@ class FileHelpers:
                     if self.should_extract(
                         file, base_include_path, ignored_names, server_update
                     ):
-                        info.filename = self.get_archive_internal_name(
-                            file, base_include_path
-                        )
+                        info.filename = safe_archive_name
                         try:
                             zip_ref.extract(info, destination_path)
                         except FileNotFoundError:
@@ -607,6 +612,18 @@ class FileHelpers:
                     percent = round((idx / len(files_list)) * 100)
                     self.send_percentage(server_users, percent, proc_id, False)
             self.send_percentage(server_users, 100, proc_id, True)
+
+    @staticmethod
+    def get_safe_archive_name(file: str) -> str:
+        """Remove absolute and parent path segments from a zip member name."""
+        parts = []
+        for part in pathlib.PurePosixPath(file.replace("\\", "/")).parts:
+            if part in ("", ".", "..", "/"):
+                continue
+            if re.match(r"^[A-Za-z]:$", part):
+                continue
+            parts.append(part)
+        return str(pathlib.PurePosixPath(*parts)) if parts else ""
 
     @staticmethod
     def get_absolute_path(server_path, path) -> str:

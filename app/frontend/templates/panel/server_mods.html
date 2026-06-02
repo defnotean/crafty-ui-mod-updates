@@ -1,0 +1,287 @@
+{% extends ../base.html %}
+
+{% block meta %}
+{% end %}
+
+{% block title %}Crafty Controller - Mod Updates{% end %}
+
+{% block content %}
+<link href="/static/assets/css/partial/crafty-mods.css" rel="stylesheet">
+
+<div class="content-wrapper crafty-mods-page">
+    <div class="row page-title-header">
+        <div class="col-12">
+            <div class="page-header">
+                <h4 class="page-title">
+                    {{ translate('serverDetails', 'serverDetails', data['lang']) }} - {{
+                    data['server_stats']['server_id']['server_name'] }}
+                    <br />
+                    <small>UUID: {{ data['server_stats']['server_id']['server_id'] }}</small>
+                </h4>
+            </div>
+        </div>
+    </div>
+
+    {% include "parts/details_stats.html" %}
+
+    <div class="row">
+        <div class="col-sm-12 grid-margin">
+            <div class="card">
+                <div class="card-body pt-0">
+                    <span class="d-none d-sm-block">
+                        {% include "parts/server_controls_list.html" %}
+                    </span>
+                    <span class="d-block d-sm-none">
+                        {% include "parts/m_server_controls_list.html" %}
+                    </span>
+
+                    <section class="mods-shell"
+                        data-server-id="{{ data['server_stats']['server_id']['server_id'] }}"
+                        data-default-loader="{{ data.get('mod_default_loader', 'fabric') }}"
+                        data-default-game-version="{{ data.get('mod_default_game_version', '') }}">
+                        <div class="mods-header">
+                            <div>
+                                <h3>Mod updates</h3>
+                                <p id="mods-last-scan">Ready to scan installed jars.</p>
+                            </div>
+                            <div class="mods-actions">
+                                <label for="mods-loader">Loader</label>
+                                <select id="mods-loader" class="form-control">
+                                    <option value="fabric">Fabric</option>
+                                    <option value="forge">Forge</option>
+                                    <option value="neoforge">NeoForge</option>
+                                    <option value="quilt">Quilt</option>
+                                </select>
+                                <label for="mods-game-version">Minecraft</label>
+                                <input id="mods-game-version" class="form-control" type="text" placeholder="1.21.1">
+                                <button id="mods-scan" class="btn btn-outline-info" type="button">
+                                    <i class="ph ph-magnifying-glass"></i>Scan
+                                </button>
+                                <button id="mods-update" class="btn btn-success" type="button" disabled>
+                                    <i class="ph ph-cloud-arrow-down"></i>Pull updates
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mods-summary" aria-live="polite">
+                            <div class="mods-stat">
+                                <span>Installed</span>
+                                <strong id="mods-installed">0</strong>
+                            </div>
+                            <div class="mods-stat">
+                                <span>Recognized</span>
+                                <strong id="mods-recognized">0</strong>
+                            </div>
+                            <div class="mods-stat">
+                                <span>Updates found</span>
+                                <strong id="mods-updates">0</strong>
+                            </div>
+                            <div class="mods-stat">
+                                <span>Updated</span>
+                                <strong id="mods-updated">0</strong>
+                            </div>
+                            <div class="mods-stat">
+                                <span>Needs review</span>
+                                <strong id="mods-review">0</strong>
+                            </div>
+                        </div>
+
+                        <div id="mods-alert" class="mods-alert d-none"></div>
+
+                        <div class="mods-layout">
+                            <div class="mods-table-wrap">
+                                <table class="table mods-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Mod</th>
+                                            <th>Source</th>
+                                            <th>Installed</th>
+                                            <th>Latest</th>
+                                            <th class="d-none d-lg-table-cell">Game</th>
+                                            <th class="d-none d-lg-table-cell">Loader</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="mods-table-body">
+                                        <tr>
+                                            <td colspan="7" class="mods-empty">No scan results yet.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <aside class="mods-side-panel">
+                                <div>
+                                    <span class="mods-panel-label">Source</span>
+                                    <strong>Modrinth hash lookup</strong>
+                                </div>
+                                <div>
+                                    <span class="mods-panel-label">Updates</span>
+                                    <strong id="mods-mode">Stopped-server apply</strong>
+                                </div>
+                                <div>
+                                    <span class="mods-panel-label">Backups</span>
+                                    <strong id="mods-backup">Created during pull</strong>
+                                </div>
+                            </aside>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% end %}
+
+{% block js %}
+<script>
+    const modsShell = document.querySelector(".mods-shell");
+    const modsServerId = modsShell.dataset.serverId;
+    const loaderInput = document.getElementById("mods-loader");
+    const gameVersionInput = document.getElementById("mods-game-version");
+    const scanButton = document.getElementById("mods-scan");
+    const updateButton = document.getElementById("mods-update");
+    const modsTableBody = document.getElementById("mods-table-body");
+    const modsAlert = document.getElementById("mods-alert");
+
+    loaderInput.value = modsShell.dataset.defaultLoader || "fabric";
+    gameVersionInput.value = modsShell.dataset.defaultGameVersion || "";
+
+    const statusLabels = {
+        needs_review: "Needs review",
+        recognized: "Recognized",
+        no_compatible_update: "No compatible update",
+        update_available: "Update available",
+        up_to_date: "Up to date",
+        updated: "Updated",
+        failed: "Failed"
+    };
+
+    function setBusy(isBusy) {
+        scanButton.disabled = isBusy;
+        updateButton.disabled = isBusy || Number(document.getElementById("mods-updates").textContent) === 0;
+        scanButton.classList.toggle("is-loading", isBusy);
+        updateButton.classList.toggle("is-loading", isBusy);
+    }
+
+    function showModsAlert(message, tone = "info") {
+        modsAlert.textContent = message;
+        modsAlert.className = `mods-alert mods-alert-${tone}`;
+        modsAlert.classList.remove("d-none");
+    }
+
+    function hideModsAlert() {
+        modsAlert.classList.add("d-none");
+    }
+
+    function writeCell(row, value, className = "") {
+        const cell = document.createElement("td");
+        if (className) {
+            cell.className = className;
+        }
+        cell.textContent = value || "";
+        row.appendChild(cell);
+    }
+
+    function renderSummary(summary) {
+        document.getElementById("mods-installed").textContent = summary.installed || 0;
+        document.getElementById("mods-recognized").textContent = summary.recognized || 0;
+        document.getElementById("mods-updates").textContent = summary.updates || 0;
+        document.getElementById("mods-updated").textContent = summary.updated || 0;
+        document.getElementById("mods-review").textContent = summary.needs_review || 0;
+        updateButton.disabled = Number(summary.updates || 0) === 0;
+    }
+
+    function renderMods(mods) {
+        modsTableBody.innerHTML = "";
+        if (!mods.length) {
+            const row = document.createElement("tr");
+            writeCell(row, "No jar files were found in the server mods folder.", "mods-empty");
+            row.firstChild.colSpan = 7;
+            modsTableBody.appendChild(row);
+            return;
+        }
+        mods.forEach((mod) => {
+            const row = document.createElement("tr");
+            writeCell(row, mod.name || mod.filename);
+            writeCell(row, mod.source);
+            writeCell(row, mod.installed_version || mod.source_version_number || "Unknown");
+            writeCell(row, mod.latest_version || "None");
+            writeCell(row, (mod.latest_game_versions || mod.game_versions || []).slice(0, 3).join(", "), "d-none d-lg-table-cell");
+            writeCell(row, (mod.latest_loaders || mod.loaders || [mod.metadata_loader]).filter(Boolean).join(", "), "d-none d-lg-table-cell");
+
+            const statusCell = document.createElement("td");
+            const status = document.createElement("span");
+            status.className = `mods-status mods-status-${mod.status}`;
+            status.textContent = statusLabels[mod.status] || mod.status;
+            status.title = mod.message || "";
+            statusCell.appendChild(status);
+            row.appendChild(statusCell);
+            modsTableBody.appendChild(row);
+        });
+    }
+
+    function renderScan(data) {
+        renderSummary(data.summary || {});
+        renderMods(data.mods || []);
+        document.getElementById("mods-last-scan").textContent = `Last scan: ${new Date().toLocaleString()}`;
+        if (data.backup_dir) {
+            document.getElementById("mods-backup").textContent = data.backup_dir;
+        }
+    }
+
+    async function scanMods() {
+        hideModsAlert();
+        setBusy(true);
+        const params = new URLSearchParams({
+            loader: loaderInput.value,
+            game_version: gameVersionInput.value
+        });
+        try {
+            const response = await fetch(`/api/v2/servers/${modsServerId}/mods/updates/?${params.toString()}`);
+            const body = await response.json();
+            if (body.status !== "ok") {
+                showModsAlert(body.error_data || body.error || "Scan failed.", "danger");
+                return;
+            }
+            renderScan(body.data);
+        } catch (error) {
+            showModsAlert(`Scan failed: ${error}`, "danger");
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    async function pullUpdates() {
+        hideModsAlert();
+        setBusy(true);
+        try {
+            const response = await fetch(`/api/v2/servers/${modsServerId}/mods/updates/`, {
+                method: "POST",
+                body: JSON.stringify({
+                    loader: loaderInput.value,
+                    game_version: gameVersionInput.value
+                }),
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-XSRFToken": getCookie("_xsrf")
+                }
+            });
+            const body = await response.json();
+            if (body.status !== "ok") {
+                showModsAlert(body.error_data || body.error || "Update failed.", "danger");
+                return;
+            }
+            renderScan(body.data);
+            showModsAlert(`${body.data.summary.updated || 0} mod update(s) applied.`, "success");
+        } catch (error) {
+            showModsAlert(`Update failed: ${error}`, "danger");
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    scanButton.addEventListener("click", scanMods);
+    updateButton.addEventListener("click", pullUpdates);
+    document.addEventListener("DOMContentLoaded", scanMods);
+</script>
+{% end %}

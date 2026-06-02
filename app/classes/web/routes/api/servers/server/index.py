@@ -30,6 +30,7 @@ def invalid_auto_restart_timezone(data):
         return True
     return False
 
+
 update_schema = {
     "type": "object",
     "properties": {

@@ -426,12 +426,10 @@ class ModUpdateManager:
                         text = jar.read(toml_path).decode("utf-8", errors="ignore")
                         metadata.update(
                             {
-                                "loader": "neoforge"
-                                if "neoforge" in toml_path
-                                else "forge",
-                                "mod_id": ModUpdateManager._toml_value(
-                                    text, "modId"
+                                "loader": (
+                                    "neoforge" if "neoforge" in toml_path else "forge"
                                 ),
+                                "mod_id": ModUpdateManager._toml_value(text, "modId"),
                                 "name": ModUpdateManager._toml_value(
                                     text, "displayName"
                                 ),
@@ -446,7 +444,9 @@ class ModUpdateManager:
 
     @staticmethod
     def _toml_value(text: str, key: str) -> str:
-        match = re.search(rf'^\s*{re.escape(key)}\s*=\s*["\']([^"\']+)["\']', text, re.M)
+        match = re.search(
+            rf'^\s*{re.escape(key)}\s*=\s*["\']([^"\']+)["\']', text, re.M
+        )
         return match.group(1) if match else ""
 
     @staticmethod

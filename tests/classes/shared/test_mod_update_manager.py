@@ -68,7 +68,9 @@ def sha512(data: bytes) -> str:
     return hashlib.sha512(data).hexdigest()
 
 
-def version_payload(version_number, file_hash, filename, url="https://example.test/mod.jar"):
+def version_payload(
+    version_number, file_hash, filename, url="https://example.test/mod.jar"
+):
     return {
         "id": f"version-{version_number}",
         "name": "Example Mod",
@@ -100,7 +102,9 @@ def test_scan_detects_modrinth_update(tmp_path):
         tmp_path,
         session=FakeSession(
             current_versions={
-                current_hash: version_payload("1.0.0", current_hash, "example-1.0.0.jar")
+                current_hash: version_payload(
+                    "1.0.0", current_hash, "example-1.0.0.jar"
+                )
             },
             latest_versions={
                 current_hash: version_payload("1.1.0", latest_hash, "example-1.1.0.jar")
@@ -126,7 +130,9 @@ def test_scan_without_game_version_keeps_recognized_status(tmp_path):
         tmp_path,
         session=FakeSession(
             current_versions={
-                current_hash: version_payload("1.0.0", current_hash, "example-1.0.0.jar")
+                current_hash: version_payload(
+                    "1.0.0", current_hash, "example-1.0.0.jar"
+                )
             },
             latest_versions={},
         ),

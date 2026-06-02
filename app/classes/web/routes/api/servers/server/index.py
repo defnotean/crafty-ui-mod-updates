@@ -1,5 +1,6 @@
 import logging
 import json
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
 from playhouse.shortcuts import model_to_dict
@@ -7,6 +8,28 @@ from app.classes.models.server_permissions import EnumPermissionsServer
 from app.classes.web.base_api_handler import BaseApiHandler
 
 logger = logging.getLogger(__name__)
+
+AUTO_RESTART_TIME_PATTERN = r"^([01][0-9]|2[0-3]):[0-5][0-9]$"
+AUTO_RESTART_TIMEZONE_PATTERN = r"^[A-Za-z0-9_+\-/]+$"
+
+
+def normalize_auto_restart_payload(data):
+    if data.get("auto_restart_time") == "":
+        data["auto_restart_time"] = "04:00"
+    if data.get("auto_restart_timezone") == "":
+        data["auto_restart_timezone"] = "UTC"
+
+
+def invalid_auto_restart_timezone(data):
+    timezone = data.get("auto_restart_timezone")
+    if timezone is None:
+        return False
+    try:
+        ZoneInfo(timezone)
+    except ZoneInfoNotFoundError:
+        return True
+    return False
+
 
 update_schema = {
     "type": "object",
@@ -89,6 +112,24 @@ server_patch_schema = {
             "type": "integer",
             "minimum": 0,
             "error": "typeIntMinVal0",
+            "fill": True,
+        },
+        "auto_restart": {
+            "type": "boolean",
+            "error": "typeBool",
+            "fill": True,
+        },
+        "auto_restart_time": {
+            "type": "string",
+            "pattern": AUTO_RESTART_TIME_PATTERN,
+            "error": "typeString",
+            "fill": True,
+        },
+        "auto_restart_timezone": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": AUTO_RESTART_TIMEZONE_PATTERN,
+            "error": "typeString",
             "fill": True,
         },
         "crash_detection": {
@@ -179,6 +220,24 @@ basic_server_patch_schema = {
             "error": "typeIntMinVal0",
             "fill": True,
         },
+        "auto_restart": {
+            "type": "boolean",
+            "error": "typeBool",
+            "fill": True,
+        },
+        "auto_restart_time": {
+            "type": "string",
+            "pattern": AUTO_RESTART_TIME_PATTERN,
+            "error": "typeString",
+            "fill": True,
+        },
+        "auto_restart_timezone": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": AUTO_RESTART_TIMEZONE_PATTERN,
+            "error": "typeString",
+            "fill": True,
+        },
         "crash_detection": {
             "type": "boolean",
             "error": "typeBool",
@@ -262,6 +321,7 @@ class ApiServersServerIndexHandler(BaseApiHandler):
                 400, {"status": "error", "error": "INVALID_JSON", "error_data": str(e)}
             )
 
+        normalize_auto_restart_payload(data)
         try:
             # prevent general users from becoming bad actors
             if auth_data[4]["superuser"]:
@@ -283,6 +343,16 @@ class ApiServersServerIndexHandler(BaseApiHandler):
                     "status": "error",
                     "error": "INVALID_JSON_SCHEMA",
                     "error_data": f"{str(err)}",
+                },
+            )
+
+        if invalid_auto_restart_timezone(data):
+            return self.finish_json(
+                400,
+                {
+                    "status": "error",
+                    "error": "INVALID_TIMEZONE",
+                    "error_data": "Automatic restart timezone must be a valid IANA timezone, like America/Chicago.",
                 },
             )
 

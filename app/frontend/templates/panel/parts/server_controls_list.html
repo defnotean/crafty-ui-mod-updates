@@ -37,6 +37,12 @@
             <i class="ph-fill ph-tree-view"></i>{{ translate('serverDetails', 'files', data['lang']) }}</a>
     </li>
     {% end %}
+    {% if data['permissions']['Files'] in data['user_permissions'] and data['server_data']['type'] == 'minecraft-java' %}
+    <li class="nav-item term-nav-item">
+        <a class="nav-link {% if data['active_link'] == 'mods' %}active{% end %}" href="/panel/server_detail?id={{ data['server_stats']['server_id']['server_id'] }}&subpage=mods" role="tab" aria-selected="false">
+            <i class="ph-fill ph-puzzle-piece"></i>Mods</a>
+    </li>
+    {% end %}
     {% if data['permissions']['Config'] in data['user_permissions'] %}
     <li class="nav-item term-nav-item">
         <a class="nav-link {% if data['active_link'] == 'config' %}active{% end %}" href="/panel/server_detail?id={{ data['server_stats']['server_id']['server_id'] }}&subpage=config" role="tab" aria-selected="true">

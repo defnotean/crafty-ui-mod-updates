@@ -30,14 +30,14 @@
   <div class="row">
 
     <div class="col-sm-12 grid-margin">
-      <div class="card">
+          <div class="card">
         <div class="card-body  pt-0">
           {% if not data['failed'] %}
           <span class="d-none d-sm-block">
-            {% include "parts/server_controls_list.html %}
+            {% include "parts/server_controls_list.html" %}
           </span>
           <span class="d-block d-sm-none">
-            {% include "parts/m_server_controls_list.html %}
+            {% include "parts/m_server_controls_list.html" %}
           </span>
           {% end %}
 
@@ -190,6 +190,43 @@
                       {% end %}
                     </div>
                   </div>
+                  <div class="form-group auto-restart-panel">
+                    <div class="auto-restart-main">
+                      <div class="custom-control custom-switch">
+                        {% if data['server_stats']['server_id'].get('auto_restart') %}
+                        <input type="checkbox" class="custom-control-input" id="auto_restart" name="auto_restart"
+                          checked="" value="1">
+                        {% else %}
+                        <input type="checkbox" class="custom-control-input" id="auto_restart" name="auto_restart"
+                          value="1">
+                        {% end %}
+                        <label class="custom-control-label" for="auto_restart">&nbsp;&nbsp;Automatic restart</label>
+                      </div>
+                      <span class="auto-restart-status" id="auto_restart_summary">Off</span>
+                    </div>
+                    <div class="auto-restart-fields" id="auto_restart_fields">
+                      <div>
+                        <label for="auto_restart_time">Daily time</label>
+                        <input type="time" class="form-control" name="auto_restart_time" id="auto_restart_time"
+                          value="{{ data['server_stats']['server_id'].get('auto_restart_time', '04:00') or '04:00' }}"
+                          required>
+                      </div>
+                      <div>
+                        <label for="auto_restart_timezone">Timezone</label>
+                        <input type="text" class="form-control" name="auto_restart_timezone"
+                          id="auto_restart_timezone" list="auto_restart_timezone_examples"
+                          value="{{ data['server_stats']['server_id'].get('auto_restart_timezone', 'UTC') or 'UTC' }}"
+                          autocomplete="off" required>
+                        <datalist id="auto_restart_timezone_examples">
+                          <option value="America/Chicago">
+                          <option value="America/New_York">
+                          <option value="America/Denver">
+                          <option value="America/Los_Angeles">
+                          <option value="UTC">
+                        </datalist>
+                      </div>
+                    </div>
+                  </div>
                   <div class="form-group">
                     <div class="custom-control custom-switch">
                       {% if data['server_stats']['server_id']['crash_detection'] %}
@@ -294,6 +331,45 @@
     });
   })
   const serverId = new URLSearchParams(document.location.search).get('id')
+  const autoRestartToggle = document.getElementById("auto_restart");
+  const autoRestartTime = document.getElementById("auto_restart_time");
+  const autoRestartTimezone = document.getElementById("auto_restart_timezone");
+  const autoRestartFields = document.getElementById("auto_restart_fields");
+  const autoRestartSummary = document.getElementById("auto_restart_summary");
+
+  function getBrowserTimezone() {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function syncAutoRestartControls() {
+    if (!autoRestartToggle || !autoRestartFields || !autoRestartSummary) {
+      return;
+    }
+    const enabled = autoRestartToggle.checked;
+    const timeValue = autoRestartTime.value || "04:00";
+    const timezoneValue = autoRestartTimezone.value || "UTC";
+    autoRestartFields.classList.toggle("is-disabled", !enabled);
+    autoRestartSummary.textContent = enabled ? `${timeValue} ${timezoneValue}` : "Off";
+  }
+
+  const browserTimezone = getBrowserTimezone();
+  if (autoRestartTimezone && browserTimezone && (!autoRestartTimezone.value || autoRestartTimezone.value === "UTC")) {
+    autoRestartTimezone.value = browserTimezone;
+  }
+  if (autoRestartToggle) {
+    autoRestartToggle.addEventListener("change", syncAutoRestartControls);
+  }
+  if (autoRestartTime) {
+    autoRestartTime.addEventListener("input", syncAutoRestartControls);
+  }
+  if (autoRestartTimezone) {
+    autoRestartTimezone.addEventListener("input", syncAutoRestartControls);
+  }
+  syncAutoRestartControls();
 
 
   //used to get cookies from browser - this is part of tornados xsrf protection - it's for extra security
@@ -560,6 +636,9 @@
       formDataObject.show_status = $("#show_status").prop('checked');
       formDataObject.crash_detection = $("#crash_detection").prop('checked');
       formDataObject.auto_start = $("#auto_start").prop('checked');
+      formDataObject.auto_restart = $("#auto_restart").prop('checked');
+      formDataObject.auto_restart_time = $("#auto_restart_time").val() || "04:00";
+      formDataObject.auto_restart_timezone = $("#auto_restart_timezone").val() || browserTimezone || "UTC";
       formDataObject.count_players = $("#count_players").prop('checked');
       console.log(formDataObject);
       // Format the plain form data as JSON

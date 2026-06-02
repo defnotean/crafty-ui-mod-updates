@@ -13,6 +13,7 @@ yamllint:
       when: never
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH ||
         $CI_COMMIT_BRANCH == "dev" ||
+        $CI_COMMIT_BRANCH =~ /^ianga\// ||
         $CI_PIPELINE_SOURCE == "merge_request_event"'
   script:
     - yamllint .
@@ -30,6 +31,7 @@ jsonlint:
       when: never
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH ||
         $CI_COMMIT_BRANCH == "dev" ||
+        $CI_COMMIT_BRANCH =~ /^ianga\// ||
         $CI_PIPELINE_SOURCE == "merge_request_event"'
   script:
     - |
@@ -49,6 +51,7 @@ black:
       when: never
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH ||
         $CI_COMMIT_BRANCH == "dev" ||
+        $CI_COMMIT_BRANCH =~ /^ianga\// ||
         $CI_PIPELINE_SOURCE == "merge_request_event"'
   script:
     - black --check --verbose -- .
@@ -66,6 +69,7 @@ pylint:
       when: never
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH ||
         $CI_COMMIT_BRANCH == "dev" ||
+        $CI_COMMIT_BRANCH =~ /^ianga\// ||
         $CI_PIPELINE_SOURCE == "merge_request_event"'
   before_script:
     - apk update

@@ -57,6 +57,9 @@ from app.classes.web.routes.api.servers.server.files import (
     ApiServersServerFileDownload,
     ApiServersServerFilesOperationHandler,
 )
+from app.classes.web.routes.api.servers.server.mods import (
+    ApiServersServerModsHandler,
+)
 from app.classes.web.routes.api.crafty.upload.index import ApiFilesUploadHandler
 from app.classes.web.routes.api.servers.server.tasks.task.children import (
     ApiServersServerTasksTaskChildrenHandler,
@@ -405,6 +408,11 @@ def api_handlers(handler_args):
         (
             r"/api/v2/servers/([a-z0-9-]+)/files/(.+)/download/?$",
             ApiServersServerFileDownload,
+            handler_args,
+        ),
+        (
+            r"/api/v2/servers/([a-z0-9-]+)/mods/updates/?",
+            ApiServersServerModsHandler,
             handler_args,
         ),
         (

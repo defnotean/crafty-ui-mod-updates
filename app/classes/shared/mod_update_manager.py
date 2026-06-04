@@ -52,21 +52,26 @@ class ModUpdateManager:
         server_stats: dict[str, Any] | None = None,
         server_data: dict[str, Any] | None = None,
     ) -> str:
-        candidates = []
         server_stats = server_stats or {}
         server_data = server_data or {}
+        # The bigbucket download URL embeds the version as /<type>/<version>/<file>
+        # — the most reliable source, and it handles calendar versions (e.g. 26.1.2)
+        # that the old "1.x"-only regex mis-read (it pulled "1.2" out of "26.1.2").
+        url = str(server_data.get("executable_update_url") or "")
+        match = re.search(r"/[^/]+/(\d+\.\d+(?:\.\d+)?)/[^/]+$", url)
+        if match:
+            return match.group(1)
         for value in (
             server_stats.get("version"),
+            server_data.get("executable_update_url"),
             server_data.get("executable"),
             server_data.get("execution_command"),
-            server_data.get("executable_update_url"),
         ):
-            if value:
-                candidates.append(str(value))
-        for candidate in candidates:
-            match = re.search(r"\b1\.\d+(?:\.\d+)?\b", candidate)
+            if not value:
+                continue
+            match = re.search(r"\b(\d+\.\d+(?:\.\d+)?)\b", str(value))
             if match:
-                return match.group(0)
+                return match.group(1)
         return ""
 
     def scan(self, loader: str | None = None, game_version: str | None = None):

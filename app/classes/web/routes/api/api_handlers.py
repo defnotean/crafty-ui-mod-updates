@@ -421,6 +421,11 @@ def api_handlers(handler_args):
             handler_args,
         ),
         (
+            r"/api/v2/servers/([a-z0-9-]+)/content/?",
+            ApiServersServerContentHandler,
+            handler_args,
+        ),
+        (
             r"/api/v2/servers/([a-z0-9-]+)/route/?",
             ApiServersServerRouteHandler,
             handler_args,

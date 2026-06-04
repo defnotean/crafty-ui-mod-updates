@@ -142,10 +142,27 @@
       return div;
     }
 
+    const MR_LIMIT = 24;
+    let MR_OFFSET = 0, MR_TOTAL = 0;
+
+    function renderPager() {
+      const start = MR_TOTAL ? MR_OFFSET + 1 : 0;
+      const end = Math.min(MR_OFFSET + MR_LIMIT, MR_TOTAL);
+      const hasPrev = MR_OFFSET > 0;
+      const hasNext = (MR_OFFSET + MR_LIMIT) < MR_TOTAL;
+      status.innerHTML =
+        '<button class="btn btn-sm btn-outline-secondary py-0" id="mr-prev"' + (hasPrev ? '' : ' disabled') + '><i class="ph-bold ph-caret-left"></i>&nbsp;Back</button>' +
+        '<span style="margin:0 12px;">' + start + '–' + end + ' of ' + MR_TOTAL + '</span>' +
+        '<button class="btn btn-sm btn-outline-secondary py-0" id="mr-next"' + (hasNext ? '' : ' disabled') + '>Next&nbsp;<i class="ph-bold ph-caret-right"></i></button>';
+      const prev = el('mr-prev'), next = el('mr-next');
+      if (prev && hasPrev) prev.addEventListener('click', () => { MR_OFFSET = Math.max(0, MR_OFFSET - MR_LIMIT); window.scrollTo(0, 0); search(); });
+      if (next && hasNext) next.addEventListener('click', () => { MR_OFFSET += MR_LIMIT; window.scrollTo(0, 0); search(); });
+    }
+
     async function search() {
       const type = el('mr-type').value, q = el('mr-q').value.trim(), loader = el('mr-loader').value, gv = el('mr-gv').value.trim();
       status.textContent = 'Searching…'; results.innerHTML = '';
-      let url = '/api/v2/crafty/modrinth/search?type=' + type + '&limit=24&index=downloads';
+      let url = '/api/v2/crafty/modrinth/search?type=' + type + '&limit=' + MR_LIMIT + '&offset=' + MR_OFFSET + '&index=downloads';
       if (q) url += '&q=' + encodeURIComponent(q);
       if (loader) url += '&loader=' + encodeURIComponent(loader);
       if (gv) url += '&game_version=' + encodeURIComponent(gv);
@@ -154,29 +171,37 @@
         const d = await r.json();
         if (d.status !== 'ok') { status.textContent = 'Search failed: ' + (d.error_data || d.error); return; }
         const hits = d.data.hits || [];
+        MR_TOTAL = d.data.total_hits || hits.length;
         if (!hits.length) { status.textContent = 'No results.'; return; }
-        status.textContent = (d.data.total_hits || hits.length) + ' results';
         hits.forEach(h => results.appendChild(card(h, type)));
+        renderPager();
       } catch (e) { status.textContent = 'Search error: ' + e; }
+    }
+
+    function newSearch() { MR_OFFSET = 0; search(); }
+
+    async function serverCompat(serverId) {
+      try {
+        const r = await fetch('/api/v2/servers/' + serverId + '/content', { headers: { 'X-XSRFToken': xsrf() } });
+        const d = await r.json();
+        if (d.status === 'ok') return { loader: d.data.loader || '', gv: d.data.game_version || '' };
+      } catch (e) { }
+      return { loader: '', gv: '' };
     }
 
     async function openAction(type, id, title) {
       el('mr-modal-title').textContent = (type === 'modpack' ? 'Create server from ' : 'Install ') + title;
       const body = el('mr-modal-body');
-      body.innerHTML = '<div class="text-muted"><i class="ph ph-spinner-gap ph-spin"></i> Loading versions…</div>';
+      body.innerHTML = '<div class="text-muted"><i class="ph ph-spinner-gap ph-spin"></i> Loading…</div>';
       $('#mr-modal').modal('show');
-      const loader = el('mr-loader').value, gv = el('mr-gv').value.trim();
-      let vurl = '/api/v2/crafty/modrinth/project/' + id + '/versions';
-      const qs = [];
-      if (type !== 'modpack' && loader) qs.push('loader=' + loader);
-      if (gv) qs.push('game_version=' + gv);
-      if (qs.length) vurl += '?' + qs.join('&');
-      let versions = [];
-      try { const r = await fetch(vurl, { headers: { 'X-XSRFToken': xsrf() } }); const d = await r.json(); if (d.status === 'ok') versions = d.data.versions || []; } catch (e) { }
-      if (!versions.length) { body.innerHTML = '<div class="text-warning">No compatible versions found for these filters.</div>'; return; }
-      const vopts = versions.slice(0, 50).map(v => '<option value="' + v.id + '">' + esc(v.name || v.version_number) + ' (' + (v.game_versions || []).join(', ') + ')</option>').join('');
 
       if (type === 'modpack') {
+        const gv = el('mr-gv').value.trim();
+        let vurl = '/api/v2/crafty/modrinth/project/' + id + '/versions' + (gv ? ('?game_version=' + encodeURIComponent(gv)) : '');
+        let versions = [];
+        try { const r = await fetch(vurl, { headers: { 'X-XSRFToken': xsrf() } }); const d = await r.json(); if (d.status === 'ok') versions = d.data.versions || []; } catch (e) { }
+        if (!versions.length) { body.innerHTML = '<div class="text-warning">No versions found.</div>'; return; }
+        const vopts = versions.slice(0, 50).map(v => '<option value="' + v.id + '">' + esc(v.name || v.version_number) + ' (' + (v.game_versions || []).join(', ') + ')</option>').join('');
         body.innerHTML =
           '<div class="form-group"><label>Server name</label><input id="mr-name" class="form-control" value="' + esc(title).slice(0, 40) + '"></div>' +
           '<div class="row"><div class="col-6 form-group"><label>Port</label><input id="mr-port" type="number" class="form-control" value="25565"></div>' +
@@ -186,16 +211,39 @@
           '<button id="mr-go" class="btn btn-primary"><i class="ph-fill ph-rocket-launch"></i>&nbsp;Create Server</button>' +
           '<div id="mr-msg" class="mt-2"></div>';
         el('mr-go').addEventListener('click', () => doCreate(id));
-      } else {
-        const sopts = MR_SERVERS.map(s => '<option value="' + s.server_id + '">' + esc(s.server_name) + '</option>').join('');
-        body.innerHTML =
-          (MR_SERVERS.length ? '' : '<div class="text-warning mb-2">You have no servers to install to yet.</div>') +
-          '<div class="form-group"><label>Install onto server</label><select id="mr-target" class="form-control" data-no-custom>' + sopts + '</select></div>' +
-          '<div class="form-group"><label>Version</label><select id="mr-version" class="form-control" data-no-custom>' + vopts + '</select></div>' +
-          '<button id="mr-go" class="btn btn-primary"' + (MR_SERVERS.length ? '' : ' disabled') + '><i class="ph-fill ph-download-simple"></i>&nbsp;Install</button>' +
-          '<div id="mr-msg" class="mt-2"></div>';
-        if (MR_SERVERS.length) el('mr-go').addEventListener('click', () => doInstall(type, id));
+        return;
       }
+
+      // install onto a server — versions auto-filtered to the chosen server
+      const sopts = MR_SERVERS.map(s => '<option value="' + s.server_id + '">' + esc(s.server_name) + '</option>').join('');
+      body.innerHTML =
+        (MR_SERVERS.length ? '' : '<div class="text-warning mb-2">You have no servers to install to yet.</div>') +
+        '<div class="form-group"><label>Install onto server</label><select id="mr-target" class="form-control" data-no-custom>' + sopts + '</select></div>' +
+        '<div class="form-group"><label>Version <small id="mr-compat" class="text-muted"></small></label><select id="mr-version" class="form-control" data-no-custom><option>Loading…</option></select></div>' +
+        '<div class="text-muted mb-2" style="font-size:.82rem;"><i class="ph ph-info"></i> Only versions compatible with the selected server are shown. Required dependencies install automatically.</div>' +
+        '<button id="mr-go" class="btn btn-primary"' + (MR_SERVERS.length ? '' : ' disabled') + '><i class="ph-fill ph-download-simple"></i>&nbsp;Install</button>' +
+        '<div id="mr-msg" class="mt-2"></div>';
+
+      async function loadForServer() {
+        const verSel = el('mr-version'), compat = el('mr-compat'), go = el('mr-go');
+        const sid = el('mr-target') ? el('mr-target').value : '';
+        verSel.innerHTML = '<option>Loading…</option>';
+        let loader = '', gv = '';
+        if (sid) { const c = await serverCompat(sid); loader = c.loader; gv = c.gv; }
+        if (compat) compat.textContent = (loader || gv) ? ('— compatible with ' + [loader, gv].filter(Boolean).join(' ')) : '';
+        let vurl = '/api/v2/crafty/modrinth/project/' + id + '/versions';
+        const qs = [];
+        if (loader && type === 'mod') qs.push('loader=' + encodeURIComponent(loader));
+        if (gv) qs.push('game_version=' + encodeURIComponent(gv));
+        if (qs.length) vurl += '?' + qs.join('&');
+        let vers = [];
+        try { const r = await fetch(vurl, { headers: { 'X-XSRFToken': xsrf() } }); const d = await r.json(); if (d.status === 'ok') vers = d.data.versions || []; } catch (e) { }
+        if (!vers.length) { verSel.innerHTML = '<option value="">No compatible version</option>'; if (go) go.disabled = true; return; }
+        if (go) { go.disabled = false; go.dataset.loader = loader; go.dataset.gv = gv; }
+        verSel.innerHTML = vers.slice(0, 50).map(v => '<option value="' + v.id + '">' + esc(v.name || v.version_number) + ' (' + (v.game_versions || []).join(', ') + ')</option>').join('');
+      }
+      if (el('mr-target')) el('mr-target').addEventListener('change', loadForServer);
+      if (MR_SERVERS.length) { el('mr-go').addEventListener('click', () => doInstall(type, id)); loadForServer(); }
     }
 
     async function doCreate(project_id) {
@@ -218,14 +266,22 @@
 
     async function doInstall(type, project_id) {
       const msg = el('mr-msg'), go = el('mr-go');
-      go.disabled = true; msg.innerHTML = '<i class="ph ph-spinner-gap ph-spin"></i> Installing…';
+      go.disabled = true; msg.innerHTML = '<i class="ph ph-spinner-gap ph-spin"></i> Installing &amp; resolving dependencies…';
       try {
+        const payload = { content_type: type, project_id, version_id: el('mr-version').value };
+        if (go.dataset.loader) payload.loader = go.dataset.loader;
+        if (go.dataset.gv) payload.game_version = go.dataset.gv;
         const r = await fetch('/api/v2/servers/' + el('mr-target').value + '/content/install', {
           method: 'POST', headers: { 'X-XSRFToken': xsrf(), 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content_type: type, project_id, version_id: el('mr-version').value })
+          body: JSON.stringify(payload)
         });
         const d = await r.json();
-        if (d.status === 'ok') { msg.innerHTML = '<span class="text-success">Installed!</span>'; }
+        if (d.status === 'ok') {
+          const inst = d.data.installed || {};
+          const n = inst.count || 1, deps = inst.dependencies || 0;
+          msg.innerHTML = '<span class="text-success"><i class="ph-fill ph-check-circle"></i> Installed' +
+            (n > 1 ? (' ' + n + ' files' + (deps ? (' (incl. ' + deps + ' dependenc' + (deps > 1 ? 'ies' : 'y') + ')') : '')) : '') + '!</span>';
+        }
         else { go.disabled = false; msg.innerHTML = '<span class="text-danger">' + esc(d.error_data || d.error) + '</span>'; }
       } catch (e) { go.disabled = false; msg.innerHTML = '<span class="text-danger">' + e + '</span>'; }
     }
@@ -236,8 +292,9 @@
       .then(d => { if (d && d.status === 'ok') MR_SERVERS = (d.data || []).map(s => ({ server_id: s.server_id, server_name: s.server_name })); })
       .catch(() => {});
 
-    el('mr-form').addEventListener('submit', search);
-    search();
+    el('mr-form').addEventListener('submit', newSearch);
+    ['mr-type', 'mr-loader'].forEach(function (id) { const e = el(id); if (e) e.addEventListener('change', newSearch); });
+    newSearch();
   })();
 </script>
 

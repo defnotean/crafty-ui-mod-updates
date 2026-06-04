@@ -255,6 +255,7 @@ class ImportHelpers:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
         url_line = ""
         while process.poll() is None:

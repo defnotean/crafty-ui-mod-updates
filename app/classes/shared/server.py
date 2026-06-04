@@ -765,6 +765,7 @@ class ServerInstance:
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     env=my_env,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 )
             except Exception as ex:
                 logger.error(
@@ -844,6 +845,7 @@ class ServerInstance:
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     env=my_env,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 )
             except Exception as ex:
                 logger.error(
@@ -874,6 +876,7 @@ class ServerInstance:
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 )
             except Exception as ex:
                 # Checks for java on initial fail

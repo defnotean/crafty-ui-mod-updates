@@ -163,6 +163,12 @@ class Webserver:
             default_handler_class=PublicHandler,
             static_handler_class=CustomStaticHandler,
             serve_traceback=debug_errors,
+            # Keep WebSockets alive through reverse proxies / tunnels
+            # (e.g. Cloudflare idle-closes WS after ~100s of no traffic). The
+            # server pings every 25s and drops a connection only after ~60s of
+            # no pong, so idle dashboards stop getting "connection closed".
+            websocket_ping_interval=25,
+            websocket_ping_timeout=60,
         )
         self.https_server = tornado.httpserver.HTTPServer(app, ssl_options=cert_objects)
         self.https_server.listen(https_port)

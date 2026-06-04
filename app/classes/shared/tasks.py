@@ -308,6 +308,19 @@ class TasksManager:
             id="passkey_challenge_purge",
             start_date=datetime.datetime.now(),
         )
+        # Scheduled automatic mod updates: an hourly tick applies updates to any
+        # server whose per-server auto-update is enabled and due (daily/weekly/
+        # monthly). See app.classes.shared.mod_autoupdate.
+        from app.classes.shared import mod_autoupdate
+
+        self.scheduler.add_job(
+            mod_autoupdate.run_checks,
+            "interval",
+            hours=1,
+            id="mod_autoupdate",
+            args=[self.controller],
+            start_date=datetime.datetime.now(),
+        )
 
     def _add_scheduler_command_job(
         self,

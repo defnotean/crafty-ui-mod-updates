@@ -60,6 +60,9 @@ from app.classes.web.routes.api.servers.server.files import (
 from app.classes.web.routes.api.servers.server.mods import (
     ApiServersServerModsHandler,
 )
+from app.classes.web.routes.api.servers.server.mods_autoupdate import (
+    ApiServersServerModsAutoupdateHandler,
+)
 from app.classes.web.routes.api.servers.server.version import (
     ApiServersServerVersionHandler,
 )
@@ -505,6 +508,11 @@ def api_handlers(handler_args):
         (
             r"/api/v2/servers/([a-z0-9-]+)/mods/updates/?",
             ApiServersServerModsHandler,
+            handler_args,
+        ),
+        (
+            r"/api/v2/servers/([a-z0-9-]+)/mods/autoupdate/?",
+            ApiServersServerModsAutoupdateHandler,
             handler_args,
         ),
         (

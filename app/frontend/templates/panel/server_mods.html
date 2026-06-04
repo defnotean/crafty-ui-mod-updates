@@ -67,6 +67,9 @@
                             <label style="display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;font-weight:600;">
                                 <input type="checkbox" id="mods-au-enabled" style="width:16px;height:16px;"> <i class="ph-fill ph-arrows-clockwise"></i> Automatically update mods
                             </label>
+                            <label style="display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;font-weight:600;" title="Upgrade the server jar to the newest Minecraft release on schedule (vanilla/paper/purpur/folia/fabric). The right Java is pulled automatically.">
+                                <input type="checkbox" id="mods-au-mc" style="width:16px;height:16px;"> <i class="ph-fill ph-cube"></i> Update Minecraft to latest
+                            </label>
                             <span style="color:var(--mc-muted,#9bb08c);">Check</span>
                             <select id="mods-au-freq" class="form-control" style="width:auto;min-width:120px;" data-no-custom>
                                 <option value="daily">Daily</option>
@@ -300,19 +303,28 @@
     // ---- scheduled automatic mod updates (toggle + frequency) ----
     (function () {
         const auEnabled = document.getElementById("mods-au-enabled");
+        const auMc = document.getElementById("mods-au-mc");
         const auFreq = document.getElementById("mods-au-freq");
         const auStatus = document.getElementById("mods-au-status");
         if (!auEnabled) return;
         function fmt(cfg) {
-            if (!cfg.enabled) { auStatus.textContent = "Off — mods update only when you click Pull updates."; return; }
+            const parts = [];
+            if (cfg.enabled) parts.push("mods");
+            if (cfg.update_minecraft) parts.push("Minecraft version");
+            if (!parts.length) { auStatus.textContent = "Off — updates only when you click Pull updates."; return; }
             const last = cfg.last_check ? new Date(cfg.last_check).toLocaleString() : "not yet";
-            auStatus.textContent = "On · checks " + cfg.frequency + " · last checked: " + last;
+            auStatus.textContent = "Auto-updating " + parts.join(" + ") + " · checks " + cfg.frequency + " · last checked: " + last;
         }
         async function load() {
             try {
                 const r = await fetch("/api/v2/servers/" + modsServerId + "/mods/autoupdate");
                 const j = await r.json();
-                if (j.status === "ok") { auEnabled.checked = !!j.data.enabled; auFreq.value = j.data.frequency || "weekly"; fmt(j.data); }
+                if (j.status === "ok") {
+                    auEnabled.checked = !!j.data.enabled;
+                    if (auMc) auMc.checked = !!j.data.update_minecraft;
+                    auFreq.value = j.data.frequency || "weekly";
+                    fmt(j.data);
+                }
             } catch (e) { }
         }
         async function save() {
@@ -321,13 +333,14 @@
                 const r = await fetch("/api/v2/servers/" + modsServerId + "/mods/autoupdate", {
                     method: "POST",
                     headers: { "Content-Type": "application/json", "X-XSRFToken": getCookie("_xsrf") },
-                    body: JSON.stringify({ enabled: auEnabled.checked, frequency: auFreq.value })
+                    body: JSON.stringify({ enabled: auEnabled.checked, update_minecraft: auMc ? auMc.checked : false, frequency: auFreq.value })
                 });
                 const j = await r.json();
                 if (j.status === "ok") fmt(j.data); else auStatus.textContent = "Save failed: " + (j.error_data || j.error);
             } catch (e) { auStatus.textContent = "Save failed: " + e; }
         }
         auEnabled.addEventListener("change", save);
+        if (auMc) auMc.addEventListener("change", save);
         auFreq.addEventListener("change", save);
         load();
     })();

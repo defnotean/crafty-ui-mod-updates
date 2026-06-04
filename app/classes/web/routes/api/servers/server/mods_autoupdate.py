@@ -82,15 +82,21 @@ class ApiServersServerModsAutoupdateHandler(BaseApiHandler):
                 400, {"status": "error", "error": "INVALID_JSON", "error_data": "bad JSON"}
             )
         enabled = bool(data.get("enabled"))
+        update_minecraft = bool(data.get("update_minecraft"))
         frequency = data.get("frequency", "weekly")
         # Reset the clock on every save so enabling starts the schedule from now
         # (no surprise immediate update/restart).
         cfg = mod_autoupdate.set_config(
-            path, enabled, frequency, datetime.now(timezone.utc).isoformat()
+            path,
+            enabled,
+            frequency,
+            datetime.now(timezone.utc).isoformat(),
+            update_minecraft,
         )
         self.controller.management.add_to_audit_log(
             auth_data[4]["user_id"],
-            f"set mod auto-update enabled={cfg['enabled']} frequency={cfg['frequency']}",
+            f"set auto-update mods={cfg['enabled']} minecraft={cfg['update_minecraft']} "
+            f"frequency={cfg['frequency']}",
             server_id,
             self.get_remote_ip(),
         )

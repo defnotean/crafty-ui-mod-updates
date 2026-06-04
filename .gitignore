@@ -39,3 +39,11 @@ docker/*
 lang_sort_log.txt
 lang_sort.txt
 app/migrations/status
+
+# Local runtime / deployment artifacts (not source)
+/.tmp/
+/java/
+/_promote-backup-*
+/_pre-consolidation-backup-*
+/run-crafty.ps1
+/run-staging.ps1

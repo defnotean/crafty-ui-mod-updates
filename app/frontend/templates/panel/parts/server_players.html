@@ -1,100 +1,248 @@
-<div class="col-xl-6 col-lg-12 col-md-12 col-sm-12">
-    <h2>{{ translate('serverPlayerManagement', 'players', data['lang']) }}:</h2>
-    <div class="table-responsive ">
-        <table class="table no-scroll">
-            <thead class="thead">
-                <tr>
-                    <th scope="col-5">Player</th>
-                    <th scope="col-4">Status</th>
-                    <th scope="col-3">Actions</th>
-                </tr>
-            </thead>
-            <tbody id="player-body">
-                {% for player in data['cached_players'] %}
-                <tr id="playerItem-{{ player['name'] }}" class="playerItem-- text-center">
-                    <td class=" no-scroll">
-                        <strong> {{ player['name'] }}</strong>
-                    </td>
-                    {% if player['status'] == 'Online' %}
-                    <td class="no-scroll col-5"><span class="text-success"><i class="ph ph-cell-signal-full"></i> {{
-                            player['status'] }}</span></td>
-                    {% elif player['status'] == 'Offline' %}
-                    <td class="no-scroll col-4"><span class="text-warning"><i class="ph ph-x-circle"></i><span
-                                class="d-md-none ">&nbsp;{{
-                                player['status'] }}</span><span class="d-none d-md-inline"> Last connection :<br> {{
-                                player['last_seen'] }}</span></span></td>
-                    {% end %}
-                    <td class="no-scroll col-3">
-                        {% if data['server_stats']['running'] %}
-                        <div class="row">
-                            <div class="col"><button onclick="send_command_to_server(`ban {{ player['name'] }}`)"
-                                    type="button" class="btn btn-danger">Ban</button></div>
-                            <div class="col"><button onclick="send_command_to_server(`kick {{ player['name'] }}`)"
-                                    type="button" class="btn btn-outline-danger">Kick</button></div>
-                            {% if data['server_stats']['server_type'] == "hytale" %}
-                            <div class="col"><button onclick="send_command_to_server(`op add {{ player['name'] }}`)"
-                                    type="button" class="btn btn-warning">OP</button></div>
-                            <div class="col"><button onclick="send_command_to_server(`op remove {{ player['name'] }}`)"
-                                    type="button" class="btn btn-outline-warning">De-OP</button></div>
-                            {% end %}
-                        </div>
-                        {% else %}
-                        <span> Unavailable <br>(Server Offline)</span>
-                        {% end %}
-                    </td>
-                </tr>
-                {% end %}
-            </tbody>
-        </table>
+<div class="col-12 pm-wrap">
+  <style>
+    .pm-wrap { width: 100%; }
+    .pm-card { background: var(--mc-base-bg, #1a2016); border: 1px solid var(--mc-edge, #33402b); border-radius: 12px; padding: 18px 20px; margin-bottom: 18px; }
+    .pm-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+    .pm-head h3 { margin: 0; font-size: 1.15rem; display: flex; align-items: center; gap: 8px; }
+    .pm-head h3 i { color: var(--mc-grass, #4caf50); }
+    .pm-sub { color: var(--mc-muted, #9bb08c); font-size: .82rem; }
+    .pm-toggle { display: inline-flex; background: var(--mc-deep-bg, #11150f); border: 1px solid var(--mc-edge, #33402b); border-radius: 10px; padding: 4px; margin-bottom: 18px; gap: 4px; }
+    .pm-tab { border: 0; background: transparent; color: var(--mc-muted, #9bb08c); padding: 8px 20px; border-radius: 7px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 7px; transition: all .15s; }
+    .pm-tab:hover { color: var(--mc-base-text, #eaf2e6); }
+    .pm-tab.active { background: var(--mc-grass, #4caf50); color: #0d130b; }
+    .pm-tab.active.ban { background: #e2574c; color: #fff; }
+    .pm-addrow { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+    .pm-addrow .form-control, .pm-addrow input.form-control, .pm-addrow select.form-control { flex: 1 1 200px; min-width: 160px; }
+    .pm-table { margin: 0; }
+    .pm-table th { color: var(--mc-muted, #9bb08c); font-weight: 600; border-top: 0; }
+    .pm-table td { vertical-align: middle; }
+    .pm-acts { white-space: nowrap; text-align: right; }
+    .pm-acts .btn { margin-left: 4px; }
+    .pm-pill { display: inline-flex; align-items: center; gap: 5px; font-size: .8rem; padding: 2px 10px; border-radius: 20px; }
+    .pm-pill.on { color: #bdf0c0; background: rgba(76, 175, 80, .16); } .pm-pill.on i { color: #4caf50; font-size: .55rem; }
+    .pm-pill.off { color: #d3b277; background: rgba(197, 139, 58, .14); } .pm-pill.off i { color: #c58b3a; font-size: .55rem; }
+    .pm-det { color: var(--mc-muted, #9bb08c); font-size: .85rem; }
+    .pm-switch { display: inline-flex; align-items: center; gap: 8px; color: var(--mc-muted, #9bb08c); font-size: .85rem; margin: 0; cursor: pointer; }
+    .pm-switch input { width: 16px; height: 16px; }
+    .pm-empty td { color: var(--mc-muted, #9bb08c); text-align: center; }
+    .pm-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: #11150f; border: 1px solid var(--mc-edge, #33402b); color: #eaf2e6; padding: 10px 18px; border-radius: 10px; opacity: 0; pointer-events: none; transition: all .2s; z-index: 9999; }
+    .pm-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+
+  <!-- ===================== Known / online players ===================== -->
+  <div class="pm-card">
+    <div class="pm-head">
+      <h3><i class="ph-fill ph-users-three"></i> {{ translate('serverPlayerManagement', 'players', data['lang']) }}</h3>
+      <span class="pm-sub">Online &amp; previously-seen players</span>
     </div>
+    <div class="table-responsive">
+      <table class="table pm-table">
+        <thead><tr><th>Player</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
+        <tbody id="pm-players-body">
+          {% for player in data['cached_players'] %}
+          <tr>
+            <td><strong>{{ player['name'] }}</strong></td>
+            <td>
+              {% if player['status'] == 'Online' %}
+              <span class="pm-pill on"><i class="ph-fill ph-circle"></i> Online</span>
+              {% else %}
+              <span class="pm-pill off"><i class="ph ph-circle"></i> Offline</span>
+              {% end %}
+            </td>
+            <td class="pm-acts">
+              {% if data['server_stats']['running'] %}
+              <button class="btn btn-sm btn-outline-success" data-pm-act="whitelist" data-pm-name="{{ player['name'] }}"><i class="ph-bold ph-plus"></i> WL</button>
+              <button class="btn btn-sm btn-danger" data-pm-act="ban" data-pm-name="{{ player['name'] }}">Ban</button>
+              <button class="btn btn-sm btn-outline-danger" data-pm-act="kick" data-pm-name="{{ player['name'] }}">Kick</button>
+              {% else %}
+              <span class="text-muted">server offline</span>
+              {% end %}
+            </td>
+          </tr>
+          {% end %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===================== Whitelist / Ban toggle ===================== -->
+  <div class="pm-toggle" role="tablist">
+    <button type="button" class="pm-tab active" data-mode="whitelist"><i class="ph-fill ph-list-checks"></i> Whitelist</button>
+    <button type="button" class="pm-tab ban" data-mode="ban"><i class="ph-fill ph-prohibit"></i> Ban list</button>
+  </div>
+
+  <!-- ===================== Whitelist panel ===================== -->
+  <div class="pm-card pm-panel" id="pm-whitelist-panel">
+    <div class="pm-head">
+      <h3><i class="ph-fill ph-list-checks"></i> Whitelist</h3>
+      <label class="pm-switch" title="Toggles white-list enforcement on the server">
+        <input type="checkbox" id="pm-wl-enabled" {% if data.get('whitelist_enabled') %}checked{% end %}>
+        Enforce whitelist
+      </label>
+    </div>
+    <div class="pm-addrow">
+      <input type="text" class="form-control" id="pm-wl-input" placeholder="Type a player name to whitelist…" autocomplete="off">
+      <button type="button" id="pm-wl-add" class="btn btn-primary"><i class="ph-bold ph-plus"></i>&nbsp;Add to whitelist</button>
+    </div>
+    <div class="table-responsive">
+      <table class="table pm-table">
+        <thead><tr><th>Whitelisted player</th><th class="text-right">Actions</th></tr></thead>
+        <tbody id="pm-whitelist-body">
+          {% if data.get('whitelist_players') %}
+          {% for player in data['whitelist_players'] %}
+          <tr>
+            <td><strong>{{ player.get('name', player.get('uuid', '')) }}</strong></td>
+            <td class="pm-acts">
+              {% if data['server_stats']['running'] %}
+              <button class="btn btn-sm btn-outline-danger" data-pm-act="unwhitelist" data-pm-name="{{ player.get('name', '') }}"><i class="ph-bold ph-x"></i> Remove</button>
+              {% else %}
+              <span class="text-muted">server offline</span>
+              {% end %}
+            </td>
+          </tr>
+          {% end %}
+          {% else %}
+          <tr class="pm-empty"><td colspan="2">Whitelist is empty.</td></tr>
+          {% end %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===================== Ban panel ===================== -->
+  <div class="pm-card pm-panel d-none" id="pm-ban-panel">
+    <div class="pm-head">
+      <h3><i class="ph-fill ph-prohibit"></i> Ban list</h3>
+    </div>
+    <div class="pm-addrow">
+      <select class="form-control" id="pm-ban-select" data-no-custom>
+        <option value="">Select a player to ban…</option>
+        {% for player in data['cached_players'] %}
+        <option value="{{ player['name'] }}">{{ player['name'] }} ({{ player['status'] }})</option>
+        {% end %}
+      </select>
+      <button type="button" id="pm-ban-pick" class="btn btn-danger"><i class="ph-fill ph-prohibit"></i>&nbsp;Ban selected</button>
+    </div>
+    <div class="pm-addrow">
+      <input type="text" class="form-control" id="pm-ban-input" placeholder="…or type any player name to ban" autocomplete="off">
+      <button type="button" id="pm-ban-add" class="btn btn-outline-danger">Ban</button>
+    </div>
+    <div class="table-responsive">
+      <table class="table pm-table">
+        <thead><tr><th>Banned player</th><th>Details</th><th class="text-right">Actions</th></tr></thead>
+        <tbody id="pm-banned-body">
+          {% if data.get('banned_players') %}
+          {% for player in data['banned_players'] %}
+          <tr>
+            <td><strong>{{ player['name'] }}</strong></td>
+            <td class="pm-det">Banned by {{ player.get('source', '?') }}{% if player.get('reason') %} &middot; {{ player.get('reason') }}{% end %}</td>
+            <td class="pm-acts">
+              {% if data['server_stats']['running'] %}
+              <button class="btn btn-sm btn-outline-warning" data-pm-act="pardon" data-pm-name="{{ player['name'] }}">Unban</button>
+              {% else %}
+              <span class="text-muted">server offline</span>
+              {% end %}
+            </td>
+          </tr>
+          {% end %}
+          {% else %}
+          <tr class="pm-empty"><td colspan="3">No banned players.</td></tr>
+          {% end %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="pm-toast" id="pm-toast"></div>
 </div>
-<div class="col-xl-6 col-lg-12 no-scroll">
-    <h2>{{ translate('serverPlayerManagement', 'bannedPlayers', data['lang']) }}:</h2>
-    <div class="d-none d-lg-block table-responsive">
-        <table class="table no-scroll w-100">
-            <thead class="thead">
-                <tr>
-                    <th scope="col">Player</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Reason</th>
-                    <th scope="col">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for player in data['banned_players'] %}
-                <tr id="playerItem-{{ player }}" class="playerItem--">
-                    <td><strong> {{ player['name'] }}</strong></td>
-                    <td>Banned on {{ player['banned_on'] }}</td>
-                    <td>Banned by : {{ player.get('source', '') }} <br />Reason : {{ player.get('reason', 'None') }}
-                    </td>
-                    <td class="buttons">
-                        <button onclick="send_command_to_server(`pardon {{ player['name'] }}`)" type="button"
-                            class="btn btn-danger">Unban</button>
-                    </td>
-                </tr>
-                {% end %}
-            </tbody>
-        </table>
-    </div>
-    <div class="d-block d-lg-none table-responsive">
-        <table class="table no-scroll">
-            <thead class="thead ">
-                <tr>
-                    <th scope="col">Player</th>
-                    <th scope="col">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for player in data['banned_players'] %}
-                <tr id="playerItem-{{ player }}" class="playerItem--">
-                    <td><strong> {{ player['name'] }}</strong></td>
-                    <td class="buttons">
-                        <button onclick="send_command_to_server(`pardon {{ player['name'] }} `)" type="button"
-                            class="btn btn-danger">Unban</button>
-                    </td>
-                </tr>
-                {% end %}
-            </tbody>
-        </table>
-    </div>
-</div>
+
+<script>
+  // Player management: whitelist / ban toggle, dropdown ban, add-by-name, live refresh.
+  (function () {
+    const sid = new URLSearchParams(location.search).get('id');
+    const $ = (id) => document.getElementById(id);
+    const xsrf = () => (typeof getCookie === 'function' ? getCookie('_xsrf') : (document.cookie.match(/\b_xsrf=([^;]*)\b/) || [])[1]);
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    let running = {{ 'true' if data['server_stats']['running'] else 'false' }};
+
+    async function pmSend(cmd) {
+      try { await fetch(`/api/v2/servers/${sid}/stdin`, { method: 'POST', headers: { 'X-XSRFToken': xsrf() }, body: cmd }); } catch (e) { }
+    }
+    function toast(msg) { const t = $('pm-toast'); if (!t) return; t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2600); }
+    function guard() { if (!running) { toast('Start the server to manage players.'); return false; } return true; }
+    function after() { setTimeout(refresh, 1300); }
+
+    function whitelistAdd(name) { name = (name || '').trim(); if (!name || !guard()) return; pmSend('whitelist add ' + name); toast('Whitelisting ' + name + '…'); after(); }
+    function whitelistRemove(name) { if (!guard()) return; pmSend('whitelist remove ' + name); toast('Removing ' + name + ' from whitelist…'); after(); }
+    function banName(name) { name = (name || '').trim(); if (!name || !guard()) return; pmSend('ban ' + name); toast('Banning ' + name + '…'); after(); }
+    function pardon(name) { if (!guard()) return; pmSend('pardon ' + name); toast('Unbanning ' + name + '…'); after(); }
+    function kick(name) { if (!guard()) return; pmSend('kick ' + name); toast('Kicking ' + name + '…'); }
+
+    // toggle whitelist / ban
+    document.querySelectorAll('.pm-tab').forEach(tab => tab.addEventListener('click', () => {
+      document.querySelectorAll('.pm-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const ban = tab.dataset.mode === 'ban';
+      $('pm-whitelist-panel').classList.toggle('d-none', ban);
+      $('pm-ban-panel').classList.toggle('d-none', !ban);
+    }));
+
+    // add controls
+    $('pm-wl-add').addEventListener('click', () => { whitelistAdd($('pm-wl-input').value); $('pm-wl-input').value = ''; });
+    $('pm-wl-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('pm-wl-add').click(); } });
+    $('pm-ban-add').addEventListener('click', () => { banName($('pm-ban-input').value); $('pm-ban-input').value = ''; });
+    $('pm-ban-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('pm-ban-add').click(); } });
+    $('pm-ban-pick').addEventListener('click', () => { const v = $('pm-ban-select').value; if (v) banName(v); else toast('Pick a player first.'); });
+
+    const sw = $('pm-wl-enabled');
+    if (sw) sw.addEventListener('change', () => { if (!guard()) { sw.checked = !sw.checked; return; } pmSend('whitelist ' + (sw.checked ? 'on' : 'off')); toast('Whitelist ' + (sw.checked ? 'enforced' : 'disabled')); });
+
+    // delegated row actions
+    document.addEventListener('click', e => {
+      const b = e.target.closest('[data-pm-act]'); if (!b) return;
+      const act = b.dataset.pmAct, name = b.dataset.pmName;
+      if (act === 'whitelist') whitelistAdd(name);
+      else if (act === 'unwhitelist') whitelistRemove(name);
+      else if (act === 'ban') banName(name);
+      else if (act === 'kick') kick(name);
+      else if (act === 'pardon') pardon(name);
+    });
+
+    // ---- live refresh from the playerlists endpoint ----
+    function pill(s) { return s === 'Online' ? '<span class="pm-pill on"><i class="ph-fill ph-circle"></i> Online</span>' : '<span class="pm-pill off"><i class="ph ph-circle"></i> Offline</span>'; }
+    function acts(html) { return running ? html : '<span class="text-muted">server offline</span>'; }
+    function playerRow(p) {
+      const a = '<button class="btn btn-sm btn-outline-success" data-pm-act="whitelist" data-pm-name="' + esc(p.name) + '"><i class="ph-bold ph-plus"></i> WL</button>'
+        + ' <button class="btn btn-sm btn-danger" data-pm-act="ban" data-pm-name="' + esc(p.name) + '">Ban</button>'
+        + ' <button class="btn btn-sm btn-outline-danger" data-pm-act="kick" data-pm-name="' + esc(p.name) + '">Kick</button>';
+      return '<tr><td><strong>' + esc(p.name) + '</strong></td><td>' + pill(p.status) + '</td><td class="pm-acts">' + acts(a) + '</td></tr>';
+    }
+    function wlRow(p) {
+      const nm = (typeof p === 'string') ? p : (p.name || p.uuid || '');
+      const a = '<button class="btn btn-sm btn-outline-danger" data-pm-act="unwhitelist" data-pm-name="' + esc(nm) + '"><i class="ph-bold ph-x"></i> Remove</button>';
+      return '<tr><td><strong>' + esc(nm) + '</strong></td><td class="pm-acts">' + acts(a) + '</td></tr>';
+    }
+    function banRow(p) {
+      const nm = p.name || '';
+      const det = 'Banned by ' + esc(p.source || '?') + (p.reason ? (' &middot; ' + esc(p.reason)) : '');
+      const a = '<button class="btn btn-sm btn-outline-warning" data-pm-act="pardon" data-pm-name="' + esc(nm) + '">Unban</button>';
+      return '<tr><td><strong>' + esc(nm) + '</strong></td><td class="pm-det">' + det + '</td><td class="pm-acts">' + acts(a) + '</td></tr>';
+    }
+
+    async function refresh() {
+      try {
+        const r = await fetch(`/api/v2/servers/${sid}/playerlists`, { headers: { 'X-XSRFToken': xsrf() } });
+        const j = await r.json();
+        if (!j || j.status !== 'ok') return;
+        const d = j.data; running = !!d.running;
+        const pb = $('pm-players-body'); if (pb) pb.innerHTML = (d.cached || []).map(playerRow).join('') || '<tr class="pm-empty"><td colspan="3">No players seen yet.</td></tr>';
+        const wb = $('pm-whitelist-body'); if (wb) wb.innerHTML = (d.whitelist || []).map(wlRow).join('') || '<tr class="pm-empty"><td colspan="2">Whitelist is empty.</td></tr>';
+        const bb = $('pm-banned-body'); if (bb) bb.innerHTML = (d.banned || []).map(banRow).join('') || '<tr class="pm-empty"><td colspan="3">No banned players.</td></tr>';
+        const sel = $('pm-ban-select'); if (sel) { const cur = sel.value; sel.innerHTML = '<option value="">Select a player to ban…</option>' + (d.cached || []).map(p => '<option value="' + esc(p.name) + '">' + esc(p.name) + ' (' + esc(p.status || '') + ')</option>').join(''); sel.value = cur; }
+        if (sw) sw.checked = !!d.whitelist_enabled;
+      } catch (e) { }
+    }
+
+    refresh(); // populate the ban dropdown + reconcile lists on load
+  })();
+</script>

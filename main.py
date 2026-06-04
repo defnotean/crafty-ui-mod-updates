@@ -35,13 +35,19 @@ else:
         APPLICATION_PATH = os.getcwd()
         RUNNING_MODE = "Interactive"
 if helper.check_root():
-    Console.critical(
-        "Root detected. Root/Admin access denied. "
-        "Run Crafty again with non-elevated permissions."
-    )
-    time.sleep(5)
-    Console.critical("Crafty shutting down. Root/Admin access denied.")
-    sys.exit(0)
+    if os.environ.get("CRAFTY_ALLOW_ADMIN", "").lower() in ("1", "true", "yes"):
+        Console.warning(
+            "Admin/root detected, but CRAFTY_ALLOW_ADMIN is set - continuing anyway. "
+            "Running Crafty with elevated privileges is less secure."
+        )
+    else:
+        Console.critical(
+            "Root detected. Root/Admin access denied. "
+            "Run Crafty again with non-elevated permissions."
+        )
+        time.sleep(5)
+        Console.critical("Crafty shutting down. Root/Admin access denied.")
+        sys.exit(0)
 if not (sys.version_info.major == 3 and sys.version_info.minor >= 9):
     Console.critical(
         "Python version mismatch. Python "

@@ -32,6 +32,50 @@
     {% end %}
   </ul>
   <div class="d-none" id="overlay" onclick="hide(event)"></div>
+
+  <div class="row">
+    <div class="col-12 grid-margin stretch-card">
+      <div class="card mc-hero">
+        <div class="card-body">
+          <h4 class="mb-1"><i class="ph-fill ph-package"></i>&nbsp;Set up from a modpack <small class="text-none">&mdash; Modrinth or CurseForge, done for you</small></h4>
+          <p class="text-muted mb-3" style="font-size:.85rem;">Paste a <b>Modrinth</b> or <b>CurseForge</b> modpack link, or upload a <code>.mrpack</code> / CurseForge <code>.zip</code>. Crafty picks the loader + Minecraft version, creates the server, and downloads every mod for you &mdash; no manual setup.</p>
+          <div class="row">
+            <div class="col-lg-7 form-group mb-2">
+              <label for="imp-link">Modpack link <span id="imp-src" class="badge badge-secondary" style="display:none;"></span></label>
+              <input id="imp-link" class="form-control" placeholder="https://modrinth.com/modpack/…   or   https://www.curseforge.com/minecraft/modpacks/…" autocomplete="off">
+            </div>
+            <div class="col-lg-5 form-group mb-2">
+              <label for="imp-file">…or upload a pack file</label>
+              <input id="imp-file" type="file" accept=".mrpack,.zip" class="form-control">
+            </div>
+          </div>
+          <div class="row align-items-end">
+            <div class="col-md-4 form-group mb-2">
+              <label for="imp-name">Server name</label>
+              <input id="imp-name" class="form-control" placeholder="My Modpack Server">
+            </div>
+            <div class="col-md-3 form-group mb-2">
+              <label for="imp-port">Port</label>
+              <input id="imp-port" type="number" class="form-control" value="25565" min="1" max="65535">
+            </div>
+            <div class="col-md-2 form-group mb-2">
+              <label for="imp-min">Min GB</label>
+              <input id="imp-min" type="number" step="0.5" min="0.5" class="form-control" value="3">
+            </div>
+            <div class="col-md-2 form-group mb-2">
+              <label for="imp-max">Max GB</label>
+              <input id="imp-max" type="number" step="0.5" min="0.5" class="form-control" value="6">
+            </div>
+            <div class="col-md-1 form-group mb-2">
+              <button type="button" id="imp-go" class="btn btn-primary btn-block" title="Set up server"><i class="ph-fill ph-rocket-launch"></i></button>
+            </div>
+          </div>
+          <div id="imp-msg" class="mt-1" style="font-size:.85rem;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="row">
     <div class="col-sm-6 grid-margin stretch-card">
       <div class="card" id="creation_wizard">
@@ -460,4 +504,7 @@
 
 </script>
 <script src="../../static/assets/js/shared/bootstrap-select-1.13.18.js"></script>
+
+<script src="/static/assets/js/shared/wizardSmart.js?v=1"></script>
+<script src="/static/assets/js/shared/modpackImport.js?v=1"></script>
 {% end %}

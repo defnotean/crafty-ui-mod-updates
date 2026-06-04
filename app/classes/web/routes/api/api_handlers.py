@@ -60,6 +60,30 @@ from app.classes.web.routes.api.servers.server.files import (
 from app.classes.web.routes.api.servers.server.mods import (
     ApiServersServerModsHandler,
 )
+from app.classes.web.routes.api.servers.server.version import (
+    ApiServersServerVersionHandler,
+)
+from app.classes.web.routes.api.servers.server.content import (
+    ApiServersServerContentHandler,
+)
+from app.classes.web.routes.api.servers.server.route import (
+    ApiServersServerRouteHandler,
+)
+from app.classes.web.routes.api.servers.server.domain import (
+    ApiServersServerDomainHandler,
+)
+from app.classes.web.routes.api.servers.server.playerlists import (
+    ApiServersServerPlayerlistsHandler,
+)
+from app.classes.web.routes.api.servers.from_modrinth import (
+    ApiServersFromModrinthHandler,
+)
+from app.classes.web.routes.api.servers.from_curseforge import (
+    ApiServersFromCurseforgeHandler,
+)
+from app.classes.web.routes.api.servers.import_pack import (
+    ApiServersImportPackHandler,
+)
 from app.classes.web.routes.api.crafty.upload.index import ApiFilesUploadHandler
 from app.classes.web.routes.api.servers.server.tasks.task.children import (
     ApiServersServerTasksTaskChildrenHandler,
@@ -105,12 +129,20 @@ from app.classes.web.routes.api.crafty.config.server_dir import (
     ApiCraftyConfigServerDirHandler,
 )
 from app.classes.web.routes.api.crafty.stats.stats import ApiCraftyHostStatsHandler
+from app.classes.web.routes.api.crafty.system import (
+    ApiCraftyHostInfoHandler,
+    ApiCraftyPortCheckHandler,
+)
 from app.classes.web.routes.api.crafty.clogs.index import ApiCraftyLogIndexHandler
 from app.classes.web.routes.api.crafty.clogs.support import ApiCraftySupportIndexHandler
 from app.classes.web.routes.api.crafty.imports.index import ApiImportFilesIndexHandler
 from app.classes.web.routes.api.crafty.exe_cache import (
     ApiCraftyJarCacheIndexHandler,
     ApiCraftySteamCacheIndexHandler,
+)
+from app.classes.web.routes.api.crafty.modrinth.search import (
+    ApiCraftyModrinthSearchHandler,
+    ApiCraftyModrinthVersionsHandler,
 )
 from app.classes.web.routes.api.crafty.antilockout.index import ApiCraftyLockoutHandler
 
@@ -171,6 +203,16 @@ def api_handlers(handler_args):
         (
             r"/api/v2/crafty/stats/?",
             ApiCraftyHostStatsHandler,
+            handler_args,
+        ),
+        (
+            r"/api/v2/crafty/host-info/?",
+            ApiCraftyHostInfoHandler,
+            handler_args,
+        ),
+        (
+            r"/api/v2/crafty/port-check/?",
+            ApiCraftyPortCheckHandler,
             handler_args,
         ),
         (
@@ -321,6 +363,21 @@ def api_handlers(handler_args):
             handler_args,
         ),
         (
+            r"/api/v2/servers/from-modrinth/?",
+            ApiServersFromModrinthHandler,
+            handler_args,
+        ),
+        (
+            r"/api/v2/servers/from-curseforge/?",
+            ApiServersFromCurseforgeHandler,
+            handler_args,
+        ),
+        (
+            r"/api/v2/servers/import-pack/?",
+            ApiServersImportPackHandler,
+            handler_args,
+        ),
+        (
             r"/api/v2/crafty/JarCache/?",
             ApiCraftyJarCacheIndexHandler,
             handler_args,
@@ -331,6 +388,16 @@ def api_handlers(handler_args):
             handler_args,
         ),
         (
+            r"/api/v2/crafty/modrinth/search/?",
+            ApiCraftyModrinthSearchHandler,
+            handler_args,
+        ),
+        (
+            r"/api/v2/crafty/modrinth/project/([A-Za-z0-9_-]+)/versions/?",
+            ApiCraftyModrinthVersionsHandler,
+            handler_args,
+        ),
+        (
             r"/api/v2/servers/status/?",
             ApiServersServerStatusHandler,
             handler_args,
@@ -338,6 +405,31 @@ def api_handlers(handler_args):
         (
             r"/api/v2/servers/([a-z0-9-]+)/update/config/?",
             ApiServersServerUpdateConfig,
+            handler_args,
+        ),
+        (
+            r"/api/v2/servers/([a-z0-9-]+)/version/upgrade/?",
+            ApiServersServerVersionHandler,
+            handler_args,
+        ),
+        (
+            r"/api/v2/servers/([a-z0-9-]+)/content/install/?",
+            ApiServersServerContentHandler,
+            handler_args,
+        ),
+        (
+            r"/api/v2/servers/([a-z0-9-]+)/route/?",
+            ApiServersServerRouteHandler,
+            handler_args,
+        ),
+        (
+            r"/api/v2/servers/([a-z0-9-]+)/domain/?",
+            ApiServersServerDomainHandler,
+            handler_args,
+        ),
+        (
+            r"/api/v2/servers/([a-z0-9-]+)/playerlists/?",
+            ApiServersServerPlayerlistsHandler,
             handler_args,
         ),
         (

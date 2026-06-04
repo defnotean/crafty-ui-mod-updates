@@ -629,6 +629,48 @@ class ServersController(metaclass=Singleton):
 
         return json.loads(content)
 
+    @staticmethod
+    def get_whitelist(server_id):
+        """Read whitelist.json (a JSON array of {uuid, name}). Returns []."""
+        srv = ServersController().get_server_instance_by_id(server_id)
+        stats = srv.stats_helper.get_server_stats()
+        server_path = stats["server_id"]["path"]
+        path = os.path.join(server_path, "whitelist.json")
+        try:
+            with open(
+                Helpers.get_os_understandable_path(path), encoding="utf-8"
+            ) as file:
+                content = file.read()
+        except Exception:
+            return []
+        try:
+            data = json.loads(content)
+            return data if isinstance(data, list) else []
+        except Exception as ex:
+            logger.error(ex)
+            return []
+
+    @staticmethod
+    def get_whitelist_enabled(server_id):
+        """Read the white-list flag from server.properties."""
+        srv = ServersController().get_server_instance_by_id(server_id)
+        stats = srv.stats_helper.get_server_stats()
+        server_path = stats["server_id"]["path"]
+        path = os.path.join(server_path, "server.properties")
+        try:
+            with open(
+                Helpers.get_os_understandable_path(path),
+                encoding="utf-8",
+                errors="ignore",
+            ) as file:
+                for line in file:
+                    stripped = line.strip()
+                    if stripped.startswith("white-list"):
+                        return stripped.split("=", 1)[1].strip().lower() == "true"
+        except Exception:
+            pass
+        return False
+
     def check_for_old_logs(self):
         servers = HelperServers.get_all_defined_servers()
         for server in servers:

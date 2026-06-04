@@ -128,10 +128,12 @@ def callback(called_func):
 class ServerOutBuf:
     lines = {}
 
-    def __init__(self, helper, proc, server_id):
+    def __init__(self, helper, proc, server_id, server_instance=None):
         self.helper = helper
         self.proc = proc
         self.server_id = str(server_id)
+        # back-reference so we can self-heal a wrong-Java start
+        self.server_instance = server_instance
         # Buffers text for virtual_terminal_lines config number of lines
         self.max_lines = self.helper.get_setting("virtual_terminal_lines")
         self.line_buffer = ""
@@ -165,8 +167,29 @@ class ServerOutBuf:
                 for char in flush:
                     self.process_byte(char)
                 break
+        # process has exited; if it was a wrong-Java start, self-heal + retry
+        if self.server_instance is not None:
+            try:
+                self.server_instance._maybe_java_restart()
+            except Exception:  # noqa: BLE001
+                pass
 
     def new_line_handler(self, new_line):
+        # auto-Java self-heal: the JVM itself tells us when Java is too old
+        # (UnsupportedClassVersionError / "requires Java N"). Cheap pre-filter
+        # before the regex so we only parse plausible lines.
+        if self.server_instance is not None and (
+            "version" in new_line or "Java" in new_line
+        ):
+            try:
+                from app.classes.shared.java_manager import JavaManager
+
+                needed = JavaManager.parse_java_error(new_line)
+                if needed:
+                    self.server_instance._note_java_error(needed)
+            except Exception:  # noqa: BLE001
+                pass
+
         new_line = re.sub("(\033\\[(0;)?[0-9]*[A-z]?(;[0-9])?m?)", " ", new_line)
         new_line = re.sub("[A-z]{2}\b\b", "", new_line)
         highlighted = self.helper.log_colors(html.escape(new_line))
@@ -215,6 +238,10 @@ class ServerInstance:
         self.line = False
         self.start_time = None
         self.server_command = None
+        # auto-Java self-heal: needed major detected from a failed start + a
+        # bounded restart counter so a genuinely broken server can't loop forever
+        self._java_error_major = None
+        self._java_fix_attempts = 0
         self.server_path = None
         self.server_thread = None
         self.settings = {}
@@ -458,12 +485,121 @@ class ServerInstance:
                 id="save_stats_" + str(self.server_id),
             )
 
+    def _note_java_error(self, major):
+        """Called from the output reader when the JVM reports it is too old for
+        this server. Pins the needed Java for the server and pre-downloads it so
+        the retry (and every future start) uses the right runtime. Idempotent
+        within a single start attempt."""
+        try:
+            if not major or self._java_error_major:
+                return
+            self._java_error_major = major
+            from app.classes.shared.java_manager import java_manager
+
+            java_manager.configure(os.path.join(self.helper.root_dir, "java"))
+            java_manager.write_override(self.settings["path"], major)
+            logger.warning(
+                f"Auto-Java: {self.name} could not start under the current Java; "
+                f"it needs Java {major}. Auto-installing it and will retry."
+            )
+            Console.warning(
+                f"Auto-Java: {self.name} needs Java {major}; auto-installing…"
+            )
+            threading.Thread(
+                target=java_manager.ensure_java,
+                args=(major,),
+                daemon=True,
+                name=f"{self.server_id}_javafix",
+            ).start()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"Auto-Java note failed for {self.name}: {exc}")
+
+    def _maybe_java_restart(self):
+        """Called after the server process exits. If the exit was a too-old-Java
+        failure, ensure the correct Java is installed and restart once (bounded).
+        When crash-detection is enabled we let it perform the restart — the
+        pinned override + freshly-downloaded Java make that restart succeed."""
+        major = self._java_error_major
+        self._java_error_major = None
+        if not major:
+            return
+        try:
+            if self.check_running():
+                return
+            if self.settings.get("crash_detection"):
+                return  # crash detection will restart using the pinned Java
+            if self._java_fix_attempts >= 3:
+                logger.error(
+                    f"Auto-Java: {self.name} still failing after "
+                    f"{self._java_fix_attempts} auto-fix attempts; giving up."
+                )
+                return
+            self._java_fix_attempts += 1
+            from app.classes.shared.java_manager import java_manager
+
+            java_manager.configure(os.path.join(self.helper.root_dir, "java"))
+            java_manager.ensure_java(major)  # blocks until the JRE is ready
+            logger.info(
+                f"Auto-Java: restarting {self.name} with Java {major} "
+                f"(attempt {self._java_fix_attempts})"
+            )
+            self.run_threaded_server(None)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"Auto-Java restart failed for {self.name}: {exc}")
+
     def setup_server_run_command(self):
         # configure the server
         server_exec_path = Helpers.get_os_understandable_path(
             self.settings["executable"]
         )
         self.server_command = Helpers.cmdparse(self.settings["execution_command"])
+
+        # --- Auto-provision the correct Java for this server's Minecraft version ---
+        # Determines the required Java major (authoritatively from the jar's
+        # version.json / Mojang's manifest) and downloads a matching Temurin JRE
+        # on demand, then points the start command at it. Fully best-effort: any
+        # failure falls through to the existing system-Java behaviour below.
+        try:
+            if (
+                self.settings.get("type") == "minecraft-java"
+                and self.server_command
+                and os.path.basename(str(self.server_command[0])).lower()
+                in ("java", "java.exe")
+            ):
+                from app.classes.shared.java_manager import java_manager
+
+                java_manager.configure(os.path.join(self.helper.root_dir, "java"))
+                jar_path = os.path.join(
+                    self.settings["path"], self.settings["executable"]
+                )
+                candidates = [
+                    self.settings.get("executable"),
+                    self.settings.get("execution_command"),
+                    getattr(self, "jar_update_url", None),
+                ]
+                # most authoritative first: the jar's own javaVersion, then a
+                # self-heal pin (for jars we can't read), then manifest/heuristic
+                java_major = (
+                    java_manager.major_from_jar(jar_path)
+                    or java_manager.override_major(self.settings["path"])
+                    or java_manager.required_major(jar_path, candidates)
+                )
+                if java_major:
+                    java_bin = java_manager.ensure_java(java_major)
+                    if java_bin:
+                        logger.info(
+                            f"Auto-Java: {self.name} needs Java {java_major}; "
+                            f"using {java_bin}"
+                        )
+                        Console.info(
+                            f"Auto-Java: {self.name} -> Java {java_major}"
+                        )
+                        self.server_command[0] = java_bin
+        except Exception as auto_java_exc:  # noqa: BLE001
+            logger.warning(
+                f"Auto-Java provisioning skipped for {self.name}: {auto_java_exc}"
+            )
+
         if self.helper.is_os_windows() and self.server_command[0] == "java":
             logger.info(
                 "Detected nebulous java in start command. "
@@ -771,7 +907,7 @@ class ServerInstance:
                     self.stats_helper.finish_import()
                 return False
 
-        out_buf = ServerOutBuf(self.helper, self.process, self.server_id)
+        out_buf = ServerOutBuf(self.helper, self.process, self.server_id, self)
 
         logger.debug(f"Starting virtual terminal listener for server {self.name}")
         threading.Thread(

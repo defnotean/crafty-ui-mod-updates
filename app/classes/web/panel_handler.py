@@ -422,6 +422,9 @@ class PanelHandler(BaseHandler):
         elif page == "contribute":
             template = "panel/contribute.html"
 
+        elif page == "discover":
+            template = "panel/discover.html"
+
         elif page == "dashboard":
             page_data["first_log"] = self.controller.first_login
             if self.controller.first_login and exec_user["username"] == "admin":
@@ -936,6 +939,12 @@ class PanelHandler(BaseHandler):
                     server_id
                 )
                 page_data["cached_players"] = server_instance.player_cache
+                page_data["whitelist_players"] = (
+                    self.controller.servers.get_whitelist(server_id)
+                )
+                page_data["whitelist_enabled"] = (
+                    self.controller.servers.get_whitelist_enabled(server_id)
+                )
 
                 for player in page_data["banned_players"]:
                     player["banned"] = True

@@ -1,0 +1,245 @@
+{% extends ../base.html %}
+
+{% block title %}Crafty Controller - Discover{% end %}
+
+{% block content %}
+<div class="content-wrapper">
+  <div class="row page-title-header">
+    <div class="col-12">
+      <div class="page-header">
+        <h4 class="page-title"><i class="ph-fill ph-compass-tool"></i>&nbsp;Discover &mdash; Modrinth</h4>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-12 grid-margin">
+      <div class="card mc-hero">
+        <div class="card-body">
+          <h5 class="mb-1"><i class="ph-fill ph-package"></i>&nbsp;Import a modpack &mdash; auto-setup a server</h5>
+          <p class="text-muted mb-3" style="font-size:.85rem;">Paste a <b>Modrinth</b> or <b>CurseForge</b> modpack link, or upload a <code>.mrpack</code> / CurseForge <code>.zip</code>. Crafty picks the loader + Minecraft version, creates the server, and downloads every mod for you.</p>
+          <div class="row">
+            <div class="col-lg-7 form-group mb-2">
+              <label for="imp-link">Modpack link <span id="imp-src" class="badge badge-secondary" style="display:none;"></span></label>
+              <input id="imp-link" class="form-control" placeholder="https://modrinth.com/modpack/…   or   https://www.curseforge.com/minecraft/modpacks/…" autocomplete="off">
+            </div>
+            <div class="col-lg-5 form-group mb-2">
+              <label for="imp-file">…or upload a pack file</label>
+              <input id="imp-file" type="file" accept=".mrpack,.zip" class="form-control">
+            </div>
+          </div>
+          <div class="row align-items-end">
+            <div class="col-md-4 form-group mb-2">
+              <label for="imp-name">Server name</label>
+              <input id="imp-name" class="form-control" placeholder="My Modpack Server">
+            </div>
+            <div class="col-md-3 form-group mb-2">
+              <label for="imp-port">Port</label>
+              <input id="imp-port" type="number" class="form-control" value="25565" min="1" max="65535">
+            </div>
+            <div class="col-md-2 form-group mb-2">
+              <label for="imp-min">Min GB</label>
+              <input id="imp-min" type="number" step="0.5" min="0.5" class="form-control" value="3">
+            </div>
+            <div class="col-md-2 form-group mb-2">
+              <label for="imp-max">Max GB</label>
+              <input id="imp-max" type="number" step="0.5" min="0.5" class="form-control" value="6">
+            </div>
+            <div class="col-md-1 form-group mb-2">
+              <button id="imp-go" class="btn btn-primary btn-block" title="Set up server"><i class="ph-fill ph-rocket-launch"></i></button>
+            </div>
+          </div>
+          <div id="imp-msg" class="mt-1" style="font-size:.85rem;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-12 grid-margin">
+      <div class="card mc-hero">
+        <div class="card-body">
+          <form id="mr-form" class="row align-items-end" onsubmit="return false;">
+            <div class="col-lg-4 col-md-12 form-group mb-2">
+              <label for="mr-q">Search</label>
+              <input id="mr-q" class="form-control" placeholder="Search Modrinth…" autocomplete="off">
+            </div>
+            <div class="col-lg-3 col-md-4 form-group mb-2">
+              <label for="mr-type">Type</label>
+              <select id="mr-type" class="form-control" data-no-custom>
+                <option value="modpack">Modpacks</option>
+                <option value="mod">Mods</option>
+                <option value="datapack">Datapacks</option>
+                <option value="resourcepack">Resource packs</option>
+                <option value="shader">Shaders</option>
+              </select>
+            </div>
+            <div class="col-lg-2 col-md-4 form-group mb-2">
+              <label for="mr-loader">Loader</label>
+              <select id="mr-loader" class="form-control" data-no-custom>
+                <option value="">Any</option>
+                <option value="fabric">Fabric</option>
+                <option value="forge">Forge</option>
+                <option value="neoforge">NeoForge</option>
+                <option value="quilt">Quilt</option>
+              </select>
+            </div>
+            <div class="col-lg-2 col-md-3 form-group mb-2">
+              <label for="mr-gv">MC Version</label>
+              <input id="mr-gv" class="form-control" placeholder="e.g. 1.21.1" autocomplete="off">
+            </div>
+            <div class="col-lg-1 col-md-1 form-group mb-2">
+              <button id="mr-search" type="submit" class="btn btn-primary btn-block"><i class="ph-bold ph-magnifying-glass"></i></button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row" id="mr-results"></div>
+  <div class="text-center text-muted my-4" id="mr-status">Search Modrinth for modpacks, mods, datapacks and more.</div>
+</div>
+
+<div class="modal fade" id="mr-modal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="mr-modal-title">Install</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+      </div>
+      <div class="modal-body" id="mr-modal-body"></div>
+    </div>
+  </div>
+</div>
+{% end %}
+
+{% block js %}
+<script>
+  let MR_SERVERS = [];
+  (function () {
+    const el = (id) => document.getElementById(id);
+    const results = el('mr-results'), status = el('mr-status');
+    const xsrf = () => getCookie('_xsrf');
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const fmtDl = (n) => { n = +n || 0; return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : n; };
+
+    function card(hit, type) {
+      const icon = hit.icon_url || '/static/assets/images/pack.png';
+      const label = type === 'modpack' ? 'Create Server' : (type === 'shader' ? 'Client-side' : 'Install');
+      const div = document.createElement('div');
+      div.className = 'col-lg-4 col-md-6 grid-margin';
+      div.innerHTML =
+        '<div class="card h-100"><div class="card-body d-flex flex-column">' +
+        '<div class="d-flex align-items-center mb-2">' +
+        '<img src="' + esc(icon) + '" onerror="this.src=\'/static/assets/images/pack.png\'" style="width:46px;height:46px;border-radius:8px;object-fit:cover;border:1px solid var(--mc-edge);flex:0 0 auto;">' +
+        '<div class="ml-3" style="min-width:0;"><h5 class="mb-0 text-truncate">' + esc(hit.title) + '</h5>' +
+        '<small class="text-muted">by ' + esc(hit.author) + ' &middot; <i class="ph-fill ph-download-simple"></i> ' + fmtDl(hit.downloads) + '</small></div></div>' +
+        '<p class="mb-3" style="font-size:.85rem;color:#aebda0;flex:1;overflow:hidden;max-height:4.5em;">' + esc(hit.description) + '</p>' +
+        '<button class="btn btn-sm btn-primary mt-auto mr-act"' + (type === 'shader' ? ' disabled' : '') + '>' + label + '</button>' +
+        '</div></div>';
+      div.querySelector('.mr-act').addEventListener('click', () => openAction(type, hit.project_id, hit.title));
+      return div;
+    }
+
+    async function search() {
+      const type = el('mr-type').value, q = el('mr-q').value.trim(), loader = el('mr-loader').value, gv = el('mr-gv').value.trim();
+      status.textContent = 'Searching…'; results.innerHTML = '';
+      let url = '/api/v2/crafty/modrinth/search?type=' + type + '&limit=24&index=downloads';
+      if (q) url += '&q=' + encodeURIComponent(q);
+      if (loader) url += '&loader=' + encodeURIComponent(loader);
+      if (gv) url += '&game_version=' + encodeURIComponent(gv);
+      try {
+        const r = await fetch(url, { headers: { 'X-XSRFToken': xsrf() } });
+        const d = await r.json();
+        if (d.status !== 'ok') { status.textContent = 'Search failed: ' + (d.error_data || d.error); return; }
+        const hits = d.data.hits || [];
+        if (!hits.length) { status.textContent = 'No results.'; return; }
+        status.textContent = (d.data.total_hits || hits.length) + ' results';
+        hits.forEach(h => results.appendChild(card(h, type)));
+      } catch (e) { status.textContent = 'Search error: ' + e; }
+    }
+
+    async function openAction(type, id, title) {
+      el('mr-modal-title').textContent = (type === 'modpack' ? 'Create server from ' : 'Install ') + title;
+      const body = el('mr-modal-body');
+      body.innerHTML = '<div class="text-muted"><i class="ph ph-spinner-gap ph-spin"></i> Loading versions…</div>';
+      $('#mr-modal').modal('show');
+      const loader = el('mr-loader').value, gv = el('mr-gv').value.trim();
+      let vurl = '/api/v2/crafty/modrinth/project/' + id + '/versions';
+      const qs = [];
+      if (type !== 'modpack' && loader) qs.push('loader=' + loader);
+      if (gv) qs.push('game_version=' + gv);
+      if (qs.length) vurl += '?' + qs.join('&');
+      let versions = [];
+      try { const r = await fetch(vurl, { headers: { 'X-XSRFToken': xsrf() } }); const d = await r.json(); if (d.status === 'ok') versions = d.data.versions || []; } catch (e) { }
+      if (!versions.length) { body.innerHTML = '<div class="text-warning">No compatible versions found for these filters.</div>'; return; }
+      const vopts = versions.slice(0, 50).map(v => '<option value="' + v.id + '">' + esc(v.name || v.version_number) + ' (' + (v.game_versions || []).join(', ') + ')</option>').join('');
+
+      if (type === 'modpack') {
+        body.innerHTML =
+          '<div class="form-group"><label>Server name</label><input id="mr-name" class="form-control" value="' + esc(title).slice(0, 40) + '"></div>' +
+          '<div class="row"><div class="col-6 form-group"><label>Port</label><input id="mr-port" type="number" class="form-control" value="25565"></div>' +
+          '<div class="col-3 form-group"><label>Min GB</label><input id="mr-min" type="number" step="0.5" class="form-control" value="2"></div>' +
+          '<div class="col-3 form-group"><label>Max GB</label><input id="mr-max" type="number" step="0.5" class="form-control" value="4"></div></div>' +
+          '<div class="form-group"><label>Version</label><select id="mr-version" class="form-control" data-no-custom>' + vopts + '</select></div>' +
+          '<button id="mr-go" class="btn btn-primary"><i class="ph-fill ph-rocket-launch"></i>&nbsp;Create Server</button>' +
+          '<div id="mr-msg" class="mt-2"></div>';
+        el('mr-go').addEventListener('click', () => doCreate(id));
+      } else {
+        const sopts = MR_SERVERS.map(s => '<option value="' + s.server_id + '">' + esc(s.server_name) + '</option>').join('');
+        body.innerHTML =
+          (MR_SERVERS.length ? '' : '<div class="text-warning mb-2">You have no servers to install to yet.</div>') +
+          '<div class="form-group"><label>Install onto server</label><select id="mr-target" class="form-control" data-no-custom>' + sopts + '</select></div>' +
+          '<div class="form-group"><label>Version</label><select id="mr-version" class="form-control" data-no-custom>' + vopts + '</select></div>' +
+          '<button id="mr-go" class="btn btn-primary"' + (MR_SERVERS.length ? '' : ' disabled') + '><i class="ph-fill ph-download-simple"></i>&nbsp;Install</button>' +
+          '<div id="mr-msg" class="mt-2"></div>';
+        if (MR_SERVERS.length) el('mr-go').addEventListener('click', () => doInstall(type, id));
+      }
+    }
+
+    async function doCreate(project_id) {
+      const msg = el('mr-msg'), go = el('mr-go');
+      go.disabled = true; msg.innerHTML = '<i class="ph ph-spinner-gap ph-spin"></i> Creating server &amp; downloading…';
+      try {
+        const r = await fetch('/api/v2/servers/from-modrinth', {
+          method: 'POST', headers: { 'X-XSRFToken': xsrf(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: el('mr-name').value, project_id, version_id: el('mr-version').value,
+            mem_min: parseFloat(el('mr-min').value), mem_max: parseFloat(el('mr-max').value),
+            server_properties_port: parseInt(el('mr-port').value, 10)
+          })
+        });
+        const d = await r.json();
+        if (d.status === 'ok') { msg.innerHTML = '<span class="text-success">Server created! Mods are downloading in the background — redirecting…</span>'; setTimeout(() => location.href = '/panel/dashboard', 1800); }
+        else { go.disabled = false; msg.innerHTML = '<span class="text-danger">' + esc(d.error_data || d.error) + '</span>'; }
+      } catch (e) { go.disabled = false; msg.innerHTML = '<span class="text-danger">' + e + '</span>'; }
+    }
+
+    async function doInstall(type, project_id) {
+      const msg = el('mr-msg'), go = el('mr-go');
+      go.disabled = true; msg.innerHTML = '<i class="ph ph-spinner-gap ph-spin"></i> Installing…';
+      try {
+        const r = await fetch('/api/v2/servers/' + el('mr-target').value + '/content/install', {
+          method: 'POST', headers: { 'X-XSRFToken': xsrf(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content_type: type, project_id, version_id: el('mr-version').value })
+        });
+        const d = await r.json();
+        if (d.status === 'ok') { msg.innerHTML = '<span class="text-success">Installed!</span>'; }
+        else { go.disabled = false; msg.innerHTML = '<span class="text-danger">' + esc(d.error_data || d.error) + '</span>'; }
+      } catch (e) { go.disabled = false; msg.innerHTML = '<span class="text-danger">' + e + '</span>'; }
+    }
+
+    // load this user's servers (install targets) without depending on template serialization
+    fetch('/api/v2/servers', { headers: { 'X-XSRFToken': xsrf() } })
+      .then(r => r.json())
+      .then(d => { if (d && d.status === 'ok') MR_SERVERS = (d.data || []).map(s => ({ server_id: s.server_id, server_name: s.server_name })); })
+      .catch(() => {});
+
+    el('mr-form').addEventListener('submit', search);
+    search();
+  })();
+</script>
+
+<script src="/static/assets/js/shared/modpackImport.js?v=1"></script>
+{% end %}

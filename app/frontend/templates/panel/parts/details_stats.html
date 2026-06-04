@@ -55,6 +55,8 @@
               class="input_motd">{{ translate('serverStats', 'unableToConnect', data['lang']) }}</span> <br />
             {% end %}
             <b>Server Type: <span class="text-info">{{data['server_stats']['server_type']}}</span></b>
+            <br>
+            <b>Public Address:</b> <span id="route-box" class="ml-1"><i class="ph ph-spinner-gap ph-spin"></i></span>
 
           </div>
         </div>
@@ -286,4 +288,109 @@
       }
     }
   }
+</script>
+
+<script>
+  // ---- per-server public routing (bore.pub) ----
+  (function () {
+    var rid = new URLSearchParams(location.search).get('id');
+    var box = document.getElementById('route-box');
+    if (!rid || !box) return;
+    var xsrf = function () { return getCookie('_xsrf'); };
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    function portFrom(addr) { try { return parseInt(String(addr).split(':').pop(), 10); } catch (e) { return null; } }
+
+    function domainPanel(port) {
+      var saved = ''; try { saved = localStorage.getItem('mcDomain:' + rid) || ''; } catch (e) {}
+      var div = document.createElement('div');
+      div.className = 'mt-2';
+      div.style.cssText = 'background:var(--card-banner-bg);border:1px solid var(--outline);border-radius:8px;padding:10px 12px;max-width:560px;';
+      div.innerHTML =
+        '<div class="mb-2"><b>Custom domain</b> <small class="text-muted">— point your own domain at this server, no account needed</small></div>' +
+        '<div class="input-group input-group-sm mb-2" style="max-width:400px;">' +
+          '<input id="md-host" class="form-control form-control-sm" placeholder="play.yourdomain.com" value="' + esc(saved) + '">' +
+          '<div class="input-group-append"><button id="md-verify" class="btn btn-sm btn-outline-success" type="button">Verify</button></div>' +
+        '</div>' +
+        '<div id="md-rec" style="display:none;">' +
+          '<div class="text-muted small mb-1">Add this <b>SRV</b> record at your DNS provider:</div>' +
+          '<table class="table table-sm mb-1" style="font-family:var(--font-family-monospace,monospace);font-size:.78rem;"><tbody>' +
+            '<tr><td class="text-muted">Type</td><td>SRV</td></tr>' +
+            '<tr><td class="text-muted">Name</td><td id="md-name">_minecraft._tcp.&lt;host&gt;</td></tr>' +
+            '<tr><td class="text-muted">Priority / Weight</td><td>0 / 0</td></tr>' +
+            '<tr><td class="text-muted">Port</td><td>' + port + '</td></tr>' +
+            '<tr><td class="text-muted">Target</td><td>bore.pub</td></tr>' +
+          '</tbody></table>' +
+          '<button id="md-copy" class="btn btn-sm btn-link p-0" type="button"><i class="ph-fill ph-copy"></i> Copy record</button>' +
+        '</div>' +
+        '<div id="md-result" class="small mt-1"></div>';
+      return div;
+    }
+
+    function wireDomain(panel, port) {
+      var host = panel.querySelector('#md-host'), rec = panel.querySelector('#md-rec'),
+          nameCell = panel.querySelector('#md-name'), result = panel.querySelector('#md-result');
+      function refresh() {
+        var h = host.value.trim().toLowerCase().replace(/\.$/, '');
+        if (h) { rec.style.display = 'block'; nameCell.textContent = '_minecraft._tcp.' + h; } else { rec.style.display = 'none'; }
+      }
+      host.addEventListener('input', refresh); refresh();
+      panel.querySelector('#md-copy').onclick = function () {
+        var h = host.value.trim().toLowerCase().replace(/\.$/, '');
+        navigator.clipboard && navigator.clipboard.writeText('Type: SRV\nName: _minecraft._tcp.' + h + '\nPriority: 0\nWeight: 0\nPort: ' + port + '\nTarget: bore.pub');
+      };
+      panel.querySelector('#md-verify').onclick = function () {
+        var h = host.value.trim().toLowerCase().replace(/\.$/, '');
+        if (!h) { result.innerHTML = ''; return; }
+        try { localStorage.setItem('mcDomain:' + rid, h); } catch (e) {}
+        result.innerHTML = '<i class="ph ph-spinner-gap ph-spin"></i> checking DNS…';
+        fetch('/api/v2/servers/' + rid + '/domain?hostname=' + encodeURIComponent(h), { headers: { 'X-XSRFToken': xsrf() } })
+          .then(function (r) { return r.json(); }).then(function (res) {
+            var d = res.data || {};
+            if (res.status !== 'ok') { result.innerHTML = '<span class="text-danger">' + esc(res.error_data || res.error) + '</span>'; return; }
+            if (d.matches) { result.innerHTML = '<span class="text-success"><i class="ph-fill ph-check-circle"></i> ' + esc(h) + ' points at this server — players can use it!</span>'; }
+            else if (d.resolved) { var s = (d.srv || [])[0] || {}; result.innerHTML = '<span class="text-warning"><i class="ph-fill ph-warning"></i> An SRV record exists but points elsewhere (' + esc(s.target) + ':' + esc(s.port) + '). Fix the Port/Target above.</span>'; }
+            else { result.innerHTML = '<span class="text-muted">No SRV record found yet — add the record above, then re-check (DNS can take a few minutes to propagate).</span>'; }
+          }).catch(function (e) { result.innerHTML = '<span class="text-danger">' + e + '</span>'; });
+      };
+    }
+
+    function render(d) {
+      d = d || {};
+      if (d.exposed && d.address) {
+        var rport = portFrom(d.address);
+        box.innerHTML =
+          '<span class="text-success" style="font-family:var(--font-family-monospace,monospace);">' + d.address + '</span>' +
+          ' <button class="btn btn-sm btn-link p-0 align-baseline" title="Copy" type="button" data-addr="' + d.address + '"><i class="ph-fill ph-copy"></i></button>' +
+          ' <button id="route-off" class="btn btn-sm btn-outline-danger py-0" type="button">Stop</button>' +
+          ' <button id="route-domain" class="btn btn-sm btn-outline-info py-0" type="button"><i class="ph-fill ph-globe-hemisphere-west"></i> Custom domain</button>' +
+          '<div id="route-domain-panel"></div>';
+        var copy = box.querySelector('[data-addr]');
+        if (copy) copy.onclick = function () { navigator.clipboard && navigator.clipboard.writeText(this.getAttribute('data-addr')); };
+        var off = document.getElementById('route-off');
+        if (off) off.onclick = function () {
+          box.innerHTML = '<i class="ph ph-spinner-gap ph-spin"></i>';
+          fetch('/api/v2/servers/' + rid + '/route', { method: 'DELETE', headers: { 'X-XSRFToken': xsrf() } })
+            .then(function () { render({ exposed: false }); }).catch(function () { render({ exposed: false }); });
+        };
+        var dbtn = document.getElementById('route-domain'), holder = document.getElementById('route-domain-panel');
+        if (dbtn) dbtn.onclick = function () {
+          if (holder.firstChild) { holder.innerHTML = ''; return; }
+          var p = domainPanel(rport); holder.appendChild(p); wireDomain(p, rport);
+        };
+      } else {
+        box.innerHTML =
+          '<button id="route-on" class="btn btn-sm btn-outline-success py-0" type="button"><i class="ph-fill ph-globe-hemisphere-west"></i>&nbsp;Expose to internet</button>' +
+          (d.error ? ' <small class="text-danger">' + String(d.error).slice(0, 80) + '</small>' : '');
+        var on = document.getElementById('route-on');
+        if (on) on.onclick = function () {
+          box.innerHTML = '<i class="ph ph-spinner-gap ph-spin"></i> connecting…';
+          fetch('/api/v2/servers/' + rid + '/route', { method: 'POST', headers: { 'X-XSRFToken': xsrf() } })
+            .then(function (r) { return r.json(); }).then(function (res) { render(res.data || { error: res.error_data || res.error }); })
+            .catch(function (e) { render({ error: '' + e }); });
+        };
+      }
+    }
+    fetch('/api/v2/servers/' + rid + '/route', { headers: { 'X-XSRFToken': xsrf() } })
+      .then(function (r) { return r.json(); }).then(function (res) { render(res.data || {}); }).catch(function () { render({}); });
+  })();
 </script>

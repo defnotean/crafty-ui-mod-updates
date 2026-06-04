@@ -1,0 +1,54 @@
+/*
+ * Minecraft theme — dark, biome-green palette.
+ * Mirrors the variable contract of default.css / dark.css; only the identity
+ * colors are changed. The look-and-feel layer lives in internal/redesign.css
+ * (also scoped to :root.minecraft), so this file just retints the app.
+ */
+:root.minecraft {
+    /*CHANGE THESE FOR THEMES*/
+    --tooltip-bg: #0b0e08;
+    --select-bg: #20281b;
+    --ram-bg: #222a1c;
+    --base-bg: #1a2016;
+    --base-text: #d7e3cc;
+    --outline: #33402b;
+    --card-banner-bg: #20281b;
+    --deep-bg: #11150f;
+    --dropdown-bg: #161b12;
+    /*END THEME VARIATION*/
+    --black: #0a0d07;
+    --blue: #4f9fd6;
+    --indigo: #6610f2;
+    --purple: #8bc34a;
+    --pink: #e91e63;
+    --red: #d34b3a;
+    --orange: #c58b3a;
+    --yellow: #e2c044;
+    --green: #4caf50;
+    --teal: #3fbf8f;
+    --cyan: #57c7d4;
+    --white: #ffffff;
+    --white-smoke: #eaf2e6;
+    --gray: #8a9580;
+    --gray-light: #9fb08c;
+    --gray-lightest: #2a3322;
+    --primary: #4caf50;
+    --secondary: #2f3a26;
+    --success: #4caf50;
+    --info: #4f9fd6;
+    --warning: #c58b3a;
+    --danger: #d34b3a;
+    --light: #20281b;
+    --dark: #11150f;
+    --breakpoint-xs: 0;
+    --breakpoint-sm: 576px;
+    --breakpoint-md: 768px;
+    --breakpoint-lg: 992px;
+    --breakpoint-xl: 1200px;
+    --font-family-sans-serif: -apple-system, BlinkMacSystemFont, "Segoe UI",
+        "Atkinson Hyperlegible Next", "Helvetica Neue", Arial, "Noto Sans",
+        sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+        "Noto Color Emoji";
+    --font-family-monospace: "Atkinson Hyperlegible Mono", SFMono-Regular, Menlo,
+        Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}

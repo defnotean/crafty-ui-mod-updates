@@ -654,6 +654,58 @@ class ServerInstance:
             logger.critical(f"Unable to write/access {self.server_path}")
             Console.critical(f"Unable to write/access {self.server_path}")
 
+    def _clear_orphans(self):
+        """Kill any leftover server process still running from this server's
+        directory. Only reached once Crafty already believes the server is
+        stopped (the check_running guard passed), so such a process is an orphan
+        — e.g. left behind if Crafty was hard-killed without stopping it. It
+        keeps the world's session.lock and game port locked, which makes a fresh
+        start fail with 'another process has locked a portion of the file'."""
+        try:
+            import psutil
+        except Exception:  # noqa: BLE001
+            return
+        if not getattr(self, "server_path", None):
+            return
+        try:
+            target = os.path.normcase(os.path.abspath(self.server_path))
+        except Exception:  # noqa: BLE001
+            return
+        sid = str(self.server_id).lower()
+        killed = False
+        for proc in psutil.process_iter(["name"]):
+            try:
+                name = (proc.info.get("name") or "").lower()
+                if "java" not in name and "bedrock" not in name:
+                    continue
+                cwd = proc.cwd()
+                if not cwd:
+                    continue
+                cwd_norm = os.path.normcase(os.path.abspath(cwd))
+                # match the exact server dir, or its name (servers are dir'd by id)
+                if cwd_norm != target and os.path.basename(cwd.rstrip("/\\")).lower() != sid:
+                    continue
+                logger.warning(
+                    "Auto-recover: clearing orphaned process PID %s for server %s "
+                    "(it was holding the world lock / port).",
+                    proc.pid,
+                    self.name,
+                )
+                Console.warning(
+                    f"Clearing a stuck leftover process for {self.name} before start."
+                )
+                proc.kill()
+                try:
+                    proc.wait(timeout=10)
+                except Exception:  # noqa: BLE001
+                    pass
+                killed = True
+            except Exception:  # noqa: BLE001
+                continue
+        if killed:
+            # give the OS a moment to release the file locks the orphan held
+            time.sleep(1.5)
+
     @callback
     def start_server(self, user_id, forge_install=False):
         # Clear cached game port so it's recomputed from current config
@@ -705,6 +757,10 @@ class ServerInstance:
         if self.check_update():
             logger.error("Server is updating. Terminating startup.")
             return False
+
+        # Clear any orphaned process holding this server's world lock / port,
+        # so a start always succeeds even after a hard Crafty kill.
+        self._clear_orphans()
 
         logger.info(f"Launching Server {self.name} with command {self.server_command}")
         Console.info(f"Launching Server {self.name} with command {self.server_command}")

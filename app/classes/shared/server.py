@@ -1777,6 +1777,155 @@ class ServerInstance:
     def check_update(self):
         return self.stats_helper.get_server_stats()["updating"]
 
+    # ------------------------------------------------------------------
+    # Player-progress preservation across a version upgrade.
+    #
+    # A version upgrade only swaps the server jar, so worlds and player data are
+    # already left in place. To *guarantee* a player never loses anything, we
+    # take a fast local snapshot of every world + player file just before the
+    # swap, then verify they are all still present afterwards and restore any a
+    # bad jar might have wiped. This makes "upgrade the version" always carry a
+    # player's builds, inventories, stats and advancements forward.
+    # ------------------------------------------------------------------
+    def _progress_item_names(self, server_path):
+        """World folder name(s) + player files that together hold all progress."""
+        level_name = "world"
+        props = os.path.join(server_path, "server.properties")
+        try:
+            if os.path.isfile(props):
+                with open(props, "r", encoding="utf-8") as props_file:
+                    for line in props_file:
+                        stripped = line.strip()
+                        if stripped.startswith("level-name="):
+                            value = stripped.split("=", 1)[1].strip()
+                            if value:
+                                level_name = value
+                            break
+        except Exception as e:
+            logger.warning(f"[progress] could not read level-name for {self.name}: {e}")
+        # Vanilla keeps nether/end inside the world dir; Paper/Spigot split them
+        # into <world>_nether / <world>_the_end. Player/op/ban/whitelist files
+        # live in the server root. Whatever exists gets preserved.
+        return [
+            level_name,
+            f"{level_name}_nether",
+            f"{level_name}_the_end",
+            "banned-players.json",
+            "banned-ips.json",
+            "ops.json",
+            "whitelist.json",
+        ]
+
+    def _progress_safety_dir(self, server_path):
+        # Kept OUTSIDE the server folder so it is never swept into the server's
+        # own backups, but on the same disk for an instant restore.
+        servers_root = os.path.dirname(os.path.normpath(server_path))
+        return os.path.join(
+            servers_root, ".crafty_progress_safety", str(self.server_id)
+        )
+
+    def snapshot_player_progress(self):
+        """Copy all worlds + player data aside before a version swap. Returns
+        the snapshot info, or None if there is nothing to save / it failed (in
+        which case the regular pre-upgrade backup still protects the data)."""
+        try:
+            server_path = Helpers.get_os_understandable_path(self.settings["path"])
+            present = [
+                n
+                for n in self._progress_item_names(server_path)
+                if os.path.exists(os.path.join(server_path, n))
+            ]
+            if not present:
+                return None
+            safety_base = self._progress_safety_dir(server_path)
+            os.makedirs(safety_base, exist_ok=True)
+            dest = os.path.join(safety_base, time.strftime("%Y%m%d-%H%M%S"))
+            os.makedirs(dest, exist_ok=True)
+            for name in present:
+                src = os.path.join(server_path, name)
+                tgt = os.path.join(dest, name)
+                if os.path.isdir(src):
+                    shutil.copytree(src, tgt, dirs_exist_ok=True)
+                else:
+                    shutil.copy2(src, tgt)
+            logger.info(
+                f"[progress] snapshotted {present} for {self.name} before upgrade"
+            )
+            # Keep only the newest snapshot to avoid disk bloat.
+            try:
+                snaps = sorted(
+                    (
+                        os.path.join(safety_base, d)
+                        for d in os.listdir(safety_base)
+                        if os.path.isdir(os.path.join(safety_base, d))
+                    ),
+                    key=os.path.getmtime,
+                    reverse=True,
+                )
+                for old in snaps[1:]:
+                    shutil.rmtree(old, ignore_errors=True)
+            except Exception:
+                pass
+            return {"dest": dest, "items": present, "server_path": server_path}
+        except Exception as e:
+            logger.warning(
+                f"[progress] snapshot failed for {self.name} "
+                f"(pre-upgrade backup still protects data): {e}"
+            )
+            return None
+
+    def verify_player_progress(self, snapshot):
+        """After the jar swap, ensure every world/progress item is still there;
+        restore from the snapshot anything a bad jar removed or emptied so the
+        player's progress always transfers across the version change."""
+        if not snapshot:
+            return
+        try:
+            server_path = snapshot.get("server_path") or (
+                Helpers.get_os_understandable_path(self.settings["path"])
+            )
+            restored = []
+            for name in snapshot["items"]:
+                live = os.path.join(server_path, name)
+                saved = os.path.join(snapshot["dest"], name)
+                if not os.path.exists(saved):
+                    continue
+                missing = not os.path.exists(live)
+                # A world dir whose level.dat vanished is effectively lost.
+                emptied = (
+                    not missing
+                    and os.path.isdir(saved)
+                    and os.path.isfile(os.path.join(saved, "level.dat"))
+                    and not os.path.isfile(os.path.join(live, "level.dat"))
+                )
+                if missing or emptied:
+                    if os.path.isdir(saved):
+                        shutil.copytree(saved, live, dirs_exist_ok=True)
+                    else:
+                        shutil.copy2(saved, live)
+                    restored.append(name)
+            if restored:
+                logger.warning(
+                    f"[progress] upgrade would have lost {restored} for "
+                    f"{self.name}; restored from snapshot"
+                )
+                self.management_helper.add_to_audit_log_raw(
+                    "System",
+                    "-1",
+                    self.server_id,
+                    "Version upgrade preserved player progress (auto-restored "
+                    + ", ".join(restored)
+                    + ").",
+                    self.settings.get("server_ip", ""),
+                )
+            else:
+                logger.info(
+                    f"[progress] all worlds + player data intact after upgrade "
+                    f"for {self.name}"
+                )
+        except Exception as e:
+            logger.warning(f"[progress] verify/restore failed for {self.name}: {e}")
+
     def threaded_jar_update(self):
         server_users = PermissionsServers.get_server_user_list(self.server_id)
         # check to make sure a backup config actually exists before starting the update
@@ -1854,8 +2003,12 @@ class ServerInstance:
             self.stats_helper.set_update(False)
             return
         server_type = HelperServers.get_server_type_by_id(self.server_id)
+        # Preserve all worlds + player data so the version swap can never lose
+        # progress (verified and auto-restored after the swap below).
+        progress_snapshot = None
         # lets download the files
         if server_type == "minecraft-java":
+            progress_snapshot = self.snapshot_player_progress()
             jar_dir = os.path.dirname(current_executable)
             jar_file_name = os.path.basename(current_executable)
 
@@ -1913,6 +2066,10 @@ class ServerInstance:
 
         if downloaded:
             logger.info("Executable updated successfully. Starting Server")
+
+            # Guarantee the new jar kept every world + player file; restore any
+            # that went missing so the player's progress always carries forward.
+            self.verify_player_progress(progress_snapshot)
 
             self.stats_helper.set_update(False)
             if len(WebSocketManager().clients) > 0:

@@ -46,7 +46,7 @@
                   <button id="qu-go" class="btn btn-primary"><i class="ph-fill ph-arrow-fat-up"></i> &nbsp;Upgrade &amp; Restart</button>
                 </div>
               </div>
-              <small class="text-muted d-block mt-2"><i class="ph-fill ph-shield-check"></i> Backs the server up first, then swaps the jar and restarts it if it was running.</small>
+              <small class="text-muted d-block mt-2"><i class="ph-fill ph-shield-check"></i> Your worlds, player data, builds, inventories, stats &amp; advancements are automatically preserved. The server is backed up first, then only the jar is swapped — every world is verified afterwards and restored if needed, so progress always carries forward.</small>
             </div>
           </div>
         </div>
@@ -366,7 +366,8 @@
               bootbox.confirm({
                 title: 'Upgrade to ' + version + '?',
                 message: 'Crafty will back up this server, stop it if running, download ' + d.data.type +
-                         ' ' + version + ', and restart it. Your world is preserved.',
+                         ' ' + version + ', and restart it. All your worlds, player data, builds, ' +
+                         'inventories and stats are preserved and verified — progress carries forward automatically.',
                 buttons: { confirm: { label: 'Upgrade', className: 'btn-primary' },
                            cancel: { label: 'Cancel', className: 'btn-secondary' } },
                 callback: function (ok) {

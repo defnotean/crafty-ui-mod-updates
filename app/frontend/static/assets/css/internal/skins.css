@@ -48,6 +48,34 @@ html.minecraft[data-skin="midnight"] {
   --select-bg: #151823; --ram-bg: #151823; --dropdown-bg: #10131b; --tooltip-bg: #07080c;
   --outline: #2a3144; --mc-edge: #2a3144; --base-text: #dae0ec; --secondary: #1c2030;
 }
+/* Sculk — Deep Dark, eerie teal on near-black */
+html.minecraft[data-skin="sculk"] {
+  --primary: #1fb8b0; --mc-grass: #1fb8b0; --info: #2fd0c6;
+  --deep-bg: #070a0c; --base-bg: #0c1214; --card-banner-bg: #0f1a1c;
+  --select-bg: #0e181a; --ram-bg: #0e181a; --dropdown-bg: #0a1213; --tooltip-bg: #040707;
+  --outline: #163034; --mc-edge: #163034; --base-text: #cfe6e3; --secondary: #122628;
+}
+/* Lava — molten orange */
+html.minecraft[data-skin="lava"] {
+  --primary: #ff7a1a; --mc-grass: #ff7a1a; --info: #ffb300;
+  --deep-bg: #140c06; --base-bg: #1f1208; --card-banner-bg: #281709;
+  --select-bg: #23150a; --ram-bg: #23150a; --dropdown-bg: #190f07; --tooltip-bg: #0d0703;
+  --outline: #4a2c12; --mc-edge: #4a2c12; --base-text: #f5e2cf; --secondary: #3a2410;
+}
+/* Slime — bright lime */
+html.minecraft[data-skin="slime"] {
+  --primary: #8fd44a; --mc-grass: #8fd44a; --info: #6fbf3f;
+  --deep-bg: #0d120a; --base-bg: #141c10; --card-banner-bg: #1a2614;
+  --select-bg: #172213; --ram-bg: #172213; --dropdown-bg: #11190d; --tooltip-bg: #080d06;
+  --outline: #2e451f; --mc-edge: #2e451f; --base-text: #e3f0d4; --secondary: #24361a;
+}
+/* Amethyst — vivid magenta */
+html.minecraft[data-skin="amethyst"] {
+  --primary: #c850f0; --mc-grass: #c850f0; --info: #d97ff5;
+  --deep-bg: #120a16; --base-bg: #1c1226; --card-banner-bg: #251630;
+  --select-bg: #201430; --ram-bg: #201430; --dropdown-bg: #170e20; --tooltip-bg: #0c0712;
+  --outline: #44285a; --mc-edge: #44285a; --base-text: #efddf7; --secondary: #311f40;
+}
 
 /* ---- floating skin switcher --------------------------------------------- */
 #skin-switcher { position: fixed; right: 18px; bottom: 18px; z-index: 1080; font-family: var(--font-family-sans-serif); }

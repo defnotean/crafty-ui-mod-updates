@@ -39,9 +39,12 @@
           <div class="card-body" style="padding: 0.75rem;">
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.4rem;margin-bottom:.55rem;">
               <h5 class="mb-0"><i class="ph-fill ph-map-trifold"></i>&nbsp;Live Map</h5>
-              <small class="text-muted">Live 3D render of your real world &middot; coordinates &amp; online players update in real time &middot; private to this dashboard</small>
+              <div style="display:flex;align-items:center;gap:.7rem;">
+                <small class="text-muted d-none d-md-inline">Live 3D render &middot; coordinates &amp; players in real time &middot; private</small>
+                <button id="map-fs" class="btn btn-sm btn-outline-success" type="button" title="Fullscreen"><i class="ph-fill ph-arrows-out"></i>&nbsp;Fullscreen</button>
+              </div>
             </div>
-            <div style="position:relative;width:100%;height:78vh;min-height:520px;border:1px solid var(--mc-edge,#33402b);border-radius:8px;overflow:hidden;background:#0c0f0a;">
+            <div id="mc-map-wrap" style="position:relative;width:100%;height:78vh;min-height:520px;border:1px solid var(--mc-edge,#33402b);border-radius:8px;overflow:hidden;background:#0c0f0a;">
               <iframe id="bluemap-frame"
                       src="/api/v2/servers/{{ data['server_stats']['server_id']['server_id'] }}/map/"
                       style="border:0;width:100%;height:100%;display:block;"
@@ -53,4 +56,23 @@
     </div>
 
 </div>
+{% end %}
+
+{% block js %}
+<script>
+  (function () {
+    var btn = document.getElementById('map-fs'), wrap = document.getElementById('mc-map-wrap');
+    if (!btn || !wrap) return;
+    btn.addEventListener('click', function () {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else if (wrap.requestFullscreen) wrap.requestFullscreen();
+      else if (wrap.webkitRequestFullscreen) wrap.webkitRequestFullscreen();
+    });
+    document.addEventListener('fullscreenchange', function () {
+      var fs = !!document.fullscreenElement;
+      btn.innerHTML = fs ? '<i class="ph-fill ph-arrows-in"></i>&nbsp;Exit' : '<i class="ph-fill ph-arrows-out"></i>&nbsp;Fullscreen';
+      wrap.style.height = fs ? '100%' : '';
+    });
+  })();
+</script>
 {% end %}

@@ -17,7 +17,11 @@
     { id: "ocean",    name: "Ocean",    bg: "#0f1a24", accent: "#2fa8d4" },
     { id: "cherry",   name: "Cherry",   bg: "#20151a", accent: "#e8709e" },
     { id: "gold",     name: "Gold",     bg: "#1e1810", accent: "#e0a93a" },
-    { id: "midnight", name: "Midnight", bg: "#11141c", accent: "#5b8def" }
+    { id: "midnight", name: "Midnight", bg: "#11141c", accent: "#5b8def" },
+    { id: "sculk",    name: "Sculk",    bg: "#0c1214", accent: "#1fb8b0" },
+    { id: "lava",     name: "Lava",     bg: "#1f1208", accent: "#ff7a1a" },
+    { id: "slime",    name: "Slime",    bg: "#141c10", accent: "#8fd44a" },
+    { id: "amethyst", name: "Amethyst", bg: "#1c1226", accent: "#c850f0" }
   ];
 
   function current() { try { return localStorage.getItem("mcSkin") || "grass"; } catch (e) { return "grass"; } }

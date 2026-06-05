@@ -158,6 +158,11 @@ class Webserver:
             cookie_secret=cookie_secret,
             xsrf_cookies=True,
             autoreload=False,
+            # Re-read templates from disk on each render so template edits take
+            # effect on a normal page reload instead of silently requiring a full
+            # Crafty restart. Negligible cost at this scale, and it prevents stale
+            # cached pages after an update.
+            compiled_template_cache=False,
             log_function=self.log_function,
             login_url="/login",
             default_handler_class=PublicHandler,

@@ -148,6 +148,25 @@
 
     <div class="row">
       <div class="col-sm-12 grid-margin">
+        <div class="card">
+          <div class="card-body">
+            <h4 class="card-title"><i class="ph-fill ph-package"></i> &nbsp;Installed mods &amp; plugins</h4>
+            <p class="text-muted mb-2" style="font-size:.88rem;">Every <code>.jar</code> in this server's <code>mods/</code> and <code>plugins/</code> folders. Click <b>Remove</b> to delete one. Tip: if the server is running, <b>stop it first</b> — Java locks these files while it runs, so a live removal can fail.</p>
+            <div id="inst-status" class="text-muted small mb-2">Loading…</div>
+            <div class="table-responsive">
+              <table class="table mods-table">
+                <thead><tr><th>File</th><th>Folder</th><th>Size</th><th class="text-right">Action</th></tr></thead>
+                <tbody id="inst-body"></tbody>
+              </table>
+            </div>
+            <button id="inst-refresh" class="btn btn-sm btn-outline-info" type="button"><i class="ph ph-arrows-clockwise"></i>&nbsp;Refresh list</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-sm-12 grid-margin">
         <div class="card mc-hero">
           <div class="card-body">
             <h4 class="card-title"><i class="ph-fill ph-magnifying-glass"></i> &nbsp;Browse &amp; add mods</h4>
@@ -379,17 +398,21 @@
             mfStatus = document.getElementById('modfind-status'),
             mfResults = document.getElementById('modfind-results');
         if (!go) return;
+        // Paper/Spigot-family servers load /plugins (not /mods) — when this server
+        // is one of those, search Modrinth plugins and install into plugins/.
+        var pluginMode = false, serverLoaderRaw = '';
+        var PLUGIN_LOADERS = ['paper', 'spigot', 'purpur', 'folia', 'bukkit', 'waterfall', 'velocity', 'sponge', 'bungeecord'];
         var xsrf = function () { return getCookie('_xsrf'); };
         function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
         function fmtDl(n) { n = +n || 0; return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : n; }
 
-        function activeLoader() { return loaderInput ? loaderInput.value : ''; }
+        function activeLoader() { return pluginMode ? serverLoaderRaw : (loaderInput ? loaderInput.value : ''); }
         function activeVersion() { return (gv.value.trim() || (gameVersionInput ? gameVersionInput.value.trim() : '')); }
 
         async function search() {
             var loader = activeLoader(), ver = activeVersion();
             mfStatus.textContent = 'Searching Modrinth…'; mfResults.innerHTML = '';
-            var url = '/api/v2/crafty/modrinth/search?type=mod&limit=24&offset=0&index=downloads';
+            var url = '/api/v2/crafty/modrinth/search?type=' + (pluginMode ? 'plugin' : 'mod') + '&limit=24&offset=0&index=downloads';
             if (q.value.trim()) url += '&q=' + encodeURIComponent(q.value.trim());
             if (loader) url += '&loader=' + encodeURIComponent(loader);
             if (ver) url += '&game_version=' + encodeURIComponent(ver);
@@ -435,7 +458,7 @@
                 var d = await r.json();
                 var versions = (d.status === 'ok' && d.data.versions) || [];
                 if (!versions.length) { msg.innerHTML = '<span class="text-warning">No version for ' + esc(loader || 'this loader') + ' ' + esc(ver || '') + '.</span>'; btn.disabled = false; return; }
-                var payload = { content_type: 'mod', project_id: hit.project_id, version_id: versions[0].id };
+                var payload = { content_type: pluginMode ? 'plugin' : 'mod', project_id: hit.project_id, version_id: versions[0].id };
                 if (loader) payload.loader = loader;
                 if (ver) payload.game_version = ver;
                 var ir = await fetch('/api/v2/servers/' + modsServerId + '/content/install', {
@@ -457,11 +480,102 @@
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 if (d.status === 'ok') {
-                    if (d.data.loader && loaderInput && !loaderInput.value) loaderInput.value = d.data.loader;
+                    serverLoaderRaw = d.data.loader || '';
+                    pluginMode = PLUGIN_LOADERS.indexOf(String(serverLoaderRaw).toLowerCase()) !== -1;
+                    if (pluginMode) {
+                        var t = document.querySelector('.card.mc-hero .card-title');
+                        if (t) t.innerHTML = '<i class="ph-fill ph-magnifying-glass"></i> &nbsp;Browse &amp; add plugins';
+                        var pp = document.querySelector('.card.mc-hero .card-body p.text-muted');
+                        if (pp) pp.textContent = 'Search Modrinth and install plugins straight into this ' + serverLoaderRaw + ' server (they go in plugins/). Restart the server afterward to load newly added plugins.';
+                        if (q) q.placeholder = 'e.g. worldedit, luckperms, vault, essentials…';
+                    } else if (d.data.loader && loaderInput && !loaderInput.value) {
+                        loaderInput.value = d.data.loader;
+                    }
                     if (d.data.game_version && gameVersionInput && !gameVersionInput.value) gameVersionInput.value = d.data.game_version;
                     if (d.data.game_version) gv.placeholder = d.data.game_version;
                 }
             }).catch(function () {}).finally(function () { search(); });
+    })();
+
+    // ---- installed mods/plugins manager (list + remove jars) ----
+    (function () {
+        var instBody = document.getElementById('inst-body'),
+            instStatus = document.getElementById('inst-status'),
+            instRefresh = document.getElementById('inst-refresh');
+        if (!instBody) return;
+        var xsrf = function () { return getCookie('_xsrf'); };
+        function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+        async function listDir(folder) {
+            try {
+                var r = await fetch('/api/v2/servers/' + modsServerId + '/files', {
+                    method: 'POST',
+                    headers: { 'X-XSRFToken': xsrf(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ page: "files", path: folder })
+                });
+                if (!r.ok) return [];
+                var d = await r.json();
+                if (d.status !== 'ok' || !d.data) return [];
+                var out = [];
+                Object.keys(d.data).forEach(function (k) {
+                    if (k === 'root_path') return;
+                    var f = d.data[k];
+                    if (f && !f.dir && /\.jar$/i.test(k)) out.push({ name: k, folder: folder, path: f.path, size: f.size || '' });
+                });
+                return out;
+            } catch (e) { return []; }
+        }
+
+        async function load() {
+            instStatus.textContent = 'Loading…'; instBody.innerHTML = '';
+            var groups = await Promise.all([listDir('mods'), listDir('plugins')]);
+            var files = groups[0].concat(groups[1]);
+            if (!files.length) {
+                instStatus.textContent = 'No mod or plugin .jar files found in this server.';
+                return;
+            }
+            files.sort(function (a, b) { return (a.folder + '/' + a.name).localeCompare(b.folder + '/' + b.name); });
+            instStatus.textContent = files.length + ' file(s) installed';
+            files.forEach(function (f) {
+                var tr = document.createElement('tr');
+                tr.innerHTML =
+                    '<td style="word-break:break-all;"><i class="ph ph-file-archive"></i> ' + esc(f.name) + '</td>' +
+                    '<td><span style="font-size:.72rem;padding:2px 8px;border:1px solid var(--mc-edge,#33402b);border-radius:6px;white-space:nowrap;">' + esc(f.folder) + '/</span></td>' +
+                    '<td>' + esc(f.size) + '</td>' +
+                    '<td class="text-right" style="white-space:nowrap;"><button class="btn btn-sm btn-outline-danger inst-del" type="button"><i class="ph ph-trash"></i>&nbsp;Remove</button> <span class="inst-msg small"></span></td>';
+                var btn = tr.querySelector('.inst-del'), msg = tr.querySelector('.inst-msg');
+                btn.addEventListener('click', function () { removeJar(f, tr, btn, msg); });
+                instBody.appendChild(tr);
+            });
+        }
+
+        async function removeJar(f, tr, btn, msg) {
+            if (!window.confirm('Remove "' + f.name + '" from ' + f.folder + '/ ?\n\nThis permanently deletes the file. If the server is running, stop it first or the delete may fail.')) return;
+            btn.disabled = true; msg.innerHTML = '<i class="ph ph-spinner-gap ph-spin"></i>';
+            try {
+                var r = await fetch('/api/v2/servers/' + modsServerId + '/files', {
+                    method: 'DELETE',
+                    headers: { 'X-XSRFToken': xsrf(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file_system_objects: [{ filename: f.path }] })
+                });
+                var d = await r.json();
+                if (d.status === 'ok') {
+                    msg.innerHTML = '<span class="text-success">Removed</span>';
+                    tr.style.opacity = '0.45';
+                    setTimeout(function () { tr.remove(); }, 700);
+                } else {
+                    btn.disabled = false;
+                    var reason = d.error_data || d.error || 'Failed';
+                    if (d.error === 'SERVER RUNNING' || /running|in use|process|permission|denied|being used/i.test(String(reason))) {
+                        reason = 'Stop the server first — the file is in use.';
+                    }
+                    msg.innerHTML = '<span class="text-danger">' + esc(reason) + '</span>';
+                }
+            } catch (e) { btn.disabled = false; msg.innerHTML = '<span class="text-danger">' + esc(e) + '</span>'; }
+        }
+
+        instRefresh.addEventListener('click', load);
+        load();
     })();
 </script>
 {% end %}

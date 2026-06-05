@@ -5,7 +5,7 @@ from app.classes.shared.modrinth_manager import ModrinthManager
 
 logger = logging.getLogger(__name__)
 
-VALID_TYPES = {"modpack", "mod", "datapack", "resourcepack", "shader"}
+VALID_TYPES = {"modpack", "mod", "plugin", "datapack", "resourcepack", "shader"}
 
 
 class ApiCraftyModrinthSearchHandler(BaseApiHandler):

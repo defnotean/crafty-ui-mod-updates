@@ -57,6 +57,15 @@ class BaseHandler(tornado.web.RequestHandler):
         self.set_header(
             "Access-Control-Allow-Methods", "POST, GET, PUT, DELETE, OPTIONS"
         )
+        # Dynamic pages (the panel HTML shell) and API responses must never be
+        # cached by the browser or CDN, otherwise UI/template changes keep
+        # serving a stale shell until a manual hard-refresh. Static assets are
+        # served by CustomStaticHandler (a StaticFileHandler subclass, not this
+        # one) so they keep their long, versioned cache.
+        self.set_header(
+            "Cache-Control", "no-store, no-cache, must-revalidate, max-age=0"
+        )
+        self.set_header("Pragma", "no-cache")
 
     def options(self, *_, **__):
         """

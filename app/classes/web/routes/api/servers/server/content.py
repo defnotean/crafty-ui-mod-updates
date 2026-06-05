@@ -18,7 +18,7 @@ install_schema = {
     "properties": {
         "content_type": {
             "type": "string",
-            "enum": ["mod", "datapack", "resourcepack", "shader"],
+            "enum": ["mod", "plugin", "datapack", "resourcepack", "shader"],
         },
         "project_id": {"type": "string", "minLength": 1},
         "version_id": {"type": "string"},
@@ -168,7 +168,9 @@ class ApiServersServerContentHandler(BaseApiHandler):
             else:
                 versions = mgr.versions(
                     data["project_id"],
-                    loaders=[loader] if (loader and content_type == "mod") else None,
+                    loaders=[loader]
+                    if (loader and content_type in ("mod", "plugin"))
+                    else None,
                     game_versions=[game_version] if game_version else None,
                 )
                 if not versions:
@@ -181,28 +183,30 @@ class ApiServersServerContentHandler(BaseApiHandler):
                 502, {"status": "error", "error": "MODRINTH_ERROR", "error_data": str(e)}
             )
 
-        # --- mods: install the file + all required dependencies recursively ---
-        if content_type == "mod":
-            mods_dir = os.path.join(server_path, "mods")
+        # --- mods/plugins: install the file + all required deps recursively ---
+        if content_type in ("mod", "plugin"):
+            target_dir = os.path.join(
+                server_path, "mods" if content_type == "mod" else "plugins"
+            )
             visited = set()
             if version.get("project_id"):
                 visited.add(version["project_id"])
             installed = []
             self._install_mod_recursive(
-                mgr, version, mods_dir, loader, game_version, visited, installed, 0
+                mgr, version, target_dir, loader, game_version, visited, installed, 0
             )
             if not installed:
                 return self.finish_json(
                     404, {"status": "error", "error": "NO_FILE", "error_data": "version has no downloadable file"}
                 )
-            self._audit(auth_data, server_id, "mod")
+            self._audit(auth_data, server_id, content_type)
             return self.finish_json(
                 200,
                 {
                     "status": "ok",
                     "data": {
                         "installed": {
-                            "content_type": "mod",
+                            "content_type": content_type,
                             "files": installed,
                             "count": len(installed),
                             "dependencies": max(0, len(installed) - 1),

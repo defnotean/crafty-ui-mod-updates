@@ -10,8 +10,10 @@
 html.minecraft {
   --mc-grass: #4caf50;
   --mc-grass-rgb: 76, 175, 80; /* accent as an RGB triple, for rgba() glows/tints */
-  --mc-grass-dark: #3e9a43;
-  --mc-grass-deep: #2f7a34;
+  --mc-grass-dark: #3e9a43; /* fallback for browsers without color-mix */
+  --mc-grass-dark: color-mix(in srgb, var(--mc-grass), #000 16%);
+  --mc-grass-deep: #2f7a34; /* fallback */
+  --mc-grass-deep: color-mix(in srgb, var(--mc-grass), #000 36%);
   --mc-dirt: #c58b3a;
   --mc-redstone: #d34b3a;
   --mc-edge: #33402b;
@@ -103,7 +105,7 @@ html.minecraft .btn {
 }
 html.minecraft .btn-primary,
 html.minecraft .btn-success {
-  background: linear-gradient(180deg, #57c25b, var(--mc-grass-dark));
+  background: linear-gradient(180deg, var(--mc-grass), var(--mc-grass-dark));
   border: 1px solid var(--mc-grass-deep);
   box-shadow: 0 3px 0 var(--mc-grass-deep), inset 0 1px 0 rgba(255, 255, 255, 0.28);
   color: #0c160c;

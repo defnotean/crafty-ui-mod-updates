@@ -121,6 +121,14 @@
 
         current.innerHTML = fresh.innerHTML;   // swap content (scripts inert here)
         runScripts(current);                   // execute the new page's scripts
+        // Drop any modal backdrop / scroll-lock left behind by the previous page
+        // so an invisible overlay can't trap clicks after navigating.
+        try {
+          document.querySelectorAll(".modal-backdrop").forEach(function (b) { b.remove(); });
+          document.body.classList.remove("modal-open");
+          document.body.style.removeProperty("overflow");
+          document.body.style.removeProperty("padding-right");
+        } catch (e) {}
         setActiveNav(url.pathname);
 
         try { if (window.jQuery) jQuery('[data-toggle="tooltip"]').tooltip(); } catch (e) {}

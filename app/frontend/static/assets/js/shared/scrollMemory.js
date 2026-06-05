@@ -1,8 +1,12 @@
 /*
- * Per-page scroll memory. Server-detail tabs (Terminal, Logs, Files, Mods,
- * Config, …) are full page loads, so switching tabs normally snaps you to the
- * top. This remembers each page/tab's scroll position (keyed by URL) and
- * restores it on return, instead of jumping to the top.
+ * Per-page scroll memory. Server-detail tabs (Terminal, Logs, Files, Config, …)
+ * are full page loads, so switching tabs normally snaps you to the top. This
+ * remembers each page/tab's scroll position (keyed by URL) and restores it on
+ * return.
+ *
+ * It NEVER fights the user: the instant they scroll/type, auto-restore is
+ * disabled for this page view — so it can't yank you back or trap you while
+ * you're reading down a long settings page.
  */
 (function () {
   if (!("sessionStorage" in window)) return;
@@ -10,16 +14,22 @@
     try { history.scrollRestoration = "manual"; } catch (e) { /* ignore */ }
   }
 
-  function key() { return "cspos:" + location.pathname + location.search; }
+  // As soon as the user drives the scroll themselves (wheel, touch, keyboard, or
+  // grabbing the scrollbar), give up restoring for this page view. Capture-phase
+  // + early so we catch it before any restore attempt runs.
+  var userDriving = false;
+  function markDriving() { userDriving = true; }
+  ["wheel", "touchmove", "keydown", "mousedown"].forEach(function (ev) {
+    window.addEventListener(ev, markDriving, { passive: true, capture: true });
+  });
 
+  function key() { return "cspos:" + location.pathname + location.search; }
   function currentY() {
     return window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
   }
-
   function save() {
     try { sessionStorage.setItem(key(), String(currentY())); } catch (e) { /* ignore */ }
   }
-
   function targetY() {
     try {
       var v = sessionStorage.getItem(key());
@@ -28,43 +38,27 @@
   }
 
   function restore() {
+    if (userDriving) return;                 // user is already scrolling — leave them be
     var y = targetY();
     if (y === null || y <= 0) return;
-
-    var aborted = false;
-    function onUser() { aborted = true; teardown(); }
-    function teardown() {
-      window.removeEventListener("wheel", onUser);
-      window.removeEventListener("touchmove", onUser);
-      window.removeEventListener("keydown", onUser, true);
-      window.removeEventListener("mousedown", onUser, true);
-    }
-    window.addEventListener("wheel", onUser, { passive: true });
-    window.addEventListener("touchmove", onUser, { passive: true });
-    window.addEventListener("keydown", onUser, true);
-    window.addEventListener("mousedown", onUser, true);
-
-    // Content (tables, etc.) may still be laying out, so retry briefly until the
-    // page is tall enough to reach the saved position — unless the user scrolls.
     var tries = 0;
     (function attempt() {
-      if (aborted) return;
+      if (userDriving) return;               // bail the instant they touch the scroll
       var maxY = (document.documentElement.scrollHeight || document.body.scrollHeight || 0) - window.innerHeight;
       window.scrollTo(0, Math.max(0, Math.min(y, maxY)));
-      tries++;
-      if (tries < 15 && Math.abs(currentY() - y) > 2 && maxY < y) {
-        setTimeout(attempt, 70);
-      } else {
-        setTimeout(teardown, 200);
+      // Retry briefly ONLY while the page is still too short to reach the saved
+      // spot (content laying out). Bounded, so it can never loop forever.
+      if (++tries < 12 && Math.abs(currentY() - y) > 2 && maxY < y) {
+        setTimeout(attempt, 60);
       }
     })();
   }
 
   window.addEventListener("pagehide", save);
   window.addEventListener("beforeunload", save);
-  // capture clicks on tab/nav links so we record the position before navigating
+  // Record position before a tab/nav link takes us away.
   document.addEventListener("click", function (e) {
-    if (e.target && e.target.closest && e.target.closest('a[href]')) save();
+    if (e.target && e.target.closest && e.target.closest("a[href]")) save();
   }, true);
 
   if (document.readyState === "loading") {
@@ -72,5 +66,7 @@
   } else {
     restore();
   }
+  // One late attempt for pages whose content arrives after DOMContentLoaded —
+  // but guarded by userDriving, so it never yanks a user who has begun scrolling.
   window.addEventListener("load", restore);
 })();

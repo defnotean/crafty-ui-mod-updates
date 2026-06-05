@@ -65,6 +65,12 @@
             <i class="ph-fill ph-bell"></i>{{ translate('webhooks', 'webhooks', data['lang']) }}</a>
     </li>
     {% end %}
+    {% if data['permissions']['Backup'] in data['user_permissions'] and data['server_data']['type'] == 'minecraft-java' %}
+    <li class="nav-item term-nav-item">
+        <a class="nav-link {% if data['active_link'] == 'world_tools' %}active{% end %}" href="/panel/server_detail?id={{ data['server_stats']['server_id']['server_id'] }}&subpage=world_tools" role="tab" aria-selected="true">
+            <i class="ph-fill ph-globe-hemisphere-west"></i>World Tools</a>
+    </li>
+    {% end %}
     {% if data['permissions']['Config'] in data['user_permissions'] or data['server_data']['type'] != 'steam_cmd' %}
     <li class="nav-item term-nav-item update-control">
         <a class="nav-link {% if data['active_link'] == 'update_center' %}active{% end %}"

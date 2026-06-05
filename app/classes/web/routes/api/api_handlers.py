@@ -66,6 +66,9 @@ from app.classes.web.routes.api.servers.server.mods_autoupdate import (
 from app.classes.web.routes.api.servers.server.version import (
     ApiServersServerVersionHandler,
 )
+from app.classes.web.routes.api.servers.server.world import (
+    ApiServersServerWorldResetHandler,
+)
 from app.classes.web.routes.api.servers.server.content import (
     ApiServersServerContentHandler,
 )
@@ -418,6 +421,11 @@ def api_handlers(handler_args):
         (
             r"/api/v2/servers/([a-z0-9-]+)/content/install/?",
             ApiServersServerContentHandler,
+            handler_args,
+        ),
+        (
+            r"/api/v2/servers/([a-z0-9-]+)/world/reset/?",
+            ApiServersServerWorldResetHandler,
             handler_args,
         ),
         (

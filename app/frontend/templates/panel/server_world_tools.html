@@ -1,0 +1,133 @@
+{% extends ../base.html %}
+
+{% block meta %}
+{% end %}
+
+{% block title %}Crafty Controller - {{ translate('serverDetails', 'serverDetails', data['lang']) }}{% end %}
+
+{% block content %}
+<div class="content-wrapper">
+
+    <div class="row page-title-header">
+        <div class="col-12">
+            <div class="page-header">
+                <h4 class="page-title">
+                    {{ translate('serverDetails', 'serverDetails', data['lang']) }} - {{ data['server_stats']['server_id']['server_name'] }}
+                    <br />
+                    <small>UUID: {{ data['server_stats']['server_id']['server_id'] }}</small>
+                </h4>
+            </div>
+        </div>
+    </div>
+
+    {% include "parts/details_stats.html" %}
+
+    <style>
+      .mc-dim-card { border-top: 3px solid var(--outline, #33402b); transition: transform .12s ease; height: 100%; }
+      .mc-dim-card:hover { transform: translateY(-3px); }
+      .mc-dim-icon { font-size: 2.6rem; }
+      .mc-dim-overworld { border-top-color: #4CAF50; } .mc-dim-overworld .mc-dim-icon { color: #4CAF50; }
+      .mc-dim-nether { border-top-color: #C0392B; } .mc-dim-nether .mc-dim-icon { color: #C0392B; }
+      .mc-dim-end { border-top-color: #8E7CC3; } .mc-dim-end .mc-dim-icon { color: #8E7CC3; }
+    </style>
+
+    <div class="row">
+      <div class="col-sm-12 grid-margin">
+        <div class="card mc-hero">
+          <div class="card-body">
+            <h4 class="card-title"><i class="ph-fill ph-globe-hemisphere-west"></i> &nbsp;World Tools</h4>
+            <p class="mb-1">Regenerate a single dimension to get fresh terrain and resources — perfect for periodic Nether/End resets without wiping the whole world.</p>
+            <small class="text-muted d-block"><i class="ph-fill ph-shield-check"></i> Player inventories, ender chests, stats and the other dimensions are kept. A full backup is taken automatically before anything is deleted, and the server restarts itself if it was running.</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row" id="dimension-cards">
+      <div class="col-md-4 grid-margin">
+        <div class="card mc-dim-card mc-dim-overworld">
+          <div class="card-body text-center">
+            <i class="ph-fill ph-tree-evergreen mc-dim-icon"></i>
+            <h5 class="mt-2">Overworld</h5>
+            <p class="text-muted small">Grass, oceans, villages, mineshafts and all surface builds.</p>
+            <button class="btn btn-outline-success mc-reset-btn" data-dim="overworld">
+              <i class="ph-fill ph-arrows-clockwise"></i> &nbsp;Reset Overworld</button>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 grid-margin">
+        <div class="card mc-dim-card mc-dim-nether">
+          <div class="card-body text-center">
+            <i class="ph-fill ph-flame mc-dim-icon"></i>
+            <h5 class="mt-2">Nether</h5>
+            <p class="text-muted small">Fresh fortresses, bastions, ancient debris and blaze spawners.</p>
+            <button class="btn btn-outline-danger mc-reset-btn" data-dim="nether">
+              <i class="ph-fill ph-arrows-clockwise"></i> &nbsp;Reset Nether</button>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 grid-margin">
+        <div class="card mc-dim-card mc-dim-end">
+          <div class="card-body text-center">
+            <i class="ph-fill ph-sparkle mc-dim-icon"></i>
+            <h5 class="mt-2">The End</h5>
+            <p class="text-muted small">Regenerate end cities, ships, elytra loot and chorus fruit.</p>
+            <button class="btn btn-outline-primary mc-reset-btn" data-dim="end">
+              <i class="ph-fill ph-arrows-clockwise"></i> &nbsp;Reset The End</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+</div>
+{% end %}
+
+{% block js %}
+<script>
+  (function () {
+    var sid = "{{ data['server_stats']['server_id']['server_id'] }}";
+    function getCookie(name) {
+      var v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+      return v ? v.pop() : '';
+    }
+    var DIM_LABEL = { overworld: 'Overworld', nether: 'Nether', end: 'The End' };
+    document.querySelectorAll('.mc-reset-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var dim = btn.getAttribute('data-dim');
+        var label = DIM_LABEL[dim] || dim;
+        bootbox.confirm({
+          title: 'Reset the ' + label + '?',
+          message: 'This permanently deletes the <strong>' + label + '</strong> terrain and everything built in it, then regenerates it fresh on next load.' +
+                   '<br><br>Player inventories, ender chests and the other dimensions are <strong>kept</strong>, and a full backup is taken first. This cannot be undone except by restoring that backup.',
+          buttons: {
+            confirm: { label: 'Back up & Reset ' + label, className: 'btn-danger' },
+            cancel: { label: 'Cancel', className: 'btn-secondary' }
+          },
+          callback: function (ok) {
+            if (!ok) return;
+            var original = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ph ph-spinner-gap ph-spin"></i> &nbsp;Backing up & resetting…';
+            fetch('/api/v2/servers/' + sid + '/world/reset', {
+              method: 'POST',
+              headers: { 'X-XSRFToken': getCookie('_xsrf'), 'Content-Type': 'application/json' },
+              body: JSON.stringify({ dimension: dim })
+            }).then(function (r) { return r.json(); }).then(function (res) {
+              if (res.status === 'ok') {
+                try { notify('Backing up, then resetting the ' + label + '. The server will restart automatically.'); } catch (e) {}
+                bootbox.alert({ title: label + ' reset started', message: 'A backup is being taken, then the ' + label + ' is regenerated and the server restarts if it was running. Watch the terminal for progress.' });
+              } else {
+                bootbox.alert({ title: res.error || 'Error', message: res.error_data || 'Reset failed.' });
+              }
+              btn.disabled = false; btn.innerHTML = original;
+            }).catch(function (e) {
+              bootbox.alert('Reset request failed: ' + e);
+              btn.disabled = false; btn.innerHTML = original;
+            });
+          }
+        });
+      });
+    });
+  })();
+</script>
+{% end %}

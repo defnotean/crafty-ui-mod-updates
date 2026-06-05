@@ -1787,8 +1787,8 @@ class ServerInstance:
     # bad jar might have wiped. This makes "upgrade the version" always carry a
     # player's builds, inventories, stats and advancements forward.
     # ------------------------------------------------------------------
-    def _progress_item_names(self, server_path):
-        """World folder name(s) + player files that together hold all progress."""
+    def _world_level_name(self, server_path):
+        """Read level-name from server.properties (defaults to 'world')."""
         level_name = "world"
         props = os.path.join(server_path, "server.properties")
         try:
@@ -1802,7 +1802,12 @@ class ServerInstance:
                                 level_name = value
                             break
         except Exception as e:
-            logger.warning(f"[progress] could not read level-name for {self.name}: {e}")
+            logger.warning(f"[world] could not read level-name for {self.name}: {e}")
+        return level_name
+
+    def _progress_item_names(self, server_path):
+        """World folder name(s) + player files that together hold all progress."""
+        level_name = self._world_level_name(server_path)
         # Vanilla keeps nether/end inside the world dir; Paper/Spigot split them
         # into <world>_nether / <world>_the_end. Player/op/ban/whitelist files
         # live in the server root. Whatever exists gets preserved.
@@ -1925,6 +1930,124 @@ class ServerInstance:
                 )
         except Exception as e:
             logger.warning(f"[progress] verify/restore failed for {self.name}: {e}")
+
+    # ------------------------------------------------------------------
+    # Per-dimension world reset.
+    #
+    # Regenerate a single dimension (overworld / nether / end) without touching
+    # the others or any player inventories: back up first, stop the server,
+    # delete just that dimension's chunk data (region/entities/poi) so Minecraft
+    # rebuilds it fresh on next load, then restart.
+    # ------------------------------------------------------------------
+    def _dimension_chunk_dirs(self, server_path, level_name, dimension):
+        """Chunk-data folders whose deletion regenerates a dimension. Handles
+        Paper/Spigot (split <world>_nether / <world>_the_end) and vanilla
+        (DIM-1 / DIM1 inside the world folder). level.dat + playerdata are
+        intentionally excluded so inventories and the world seed survive."""
+        chunk_subdirs = ["region", "entities", "poi"]
+        if dimension == "overworld":
+            roots = [os.path.join(server_path, level_name)]
+        elif dimension == "nether":
+            roots = [
+                os.path.join(server_path, f"{level_name}_nether", "DIM-1"),
+                os.path.join(server_path, level_name, "DIM-1"),
+            ]
+        elif dimension == "end":
+            roots = [
+                os.path.join(server_path, f"{level_name}_the_end", "DIM1"),
+                os.path.join(server_path, level_name, "DIM1"),
+            ]
+        else:
+            return []
+        targets = []
+        for root in roots:
+            for sub in chunk_subdirs:
+                path = os.path.join(root, sub)
+                if os.path.isdir(path):
+                    targets.append(path)
+        return targets
+
+    def reset_dimension(self, dimension):
+        """Public entry point: regenerate one dimension in a background thread."""
+        self.stats_helper.set_update(True)
+        thread = threading.Thread(
+            target=self._threaded_reset_dimension,
+            args=(dimension,),
+            daemon=True,
+            name=f"dim_reset_{self.name}",
+        )
+        thread.start()
+
+    def _threaded_reset_dimension(self, dimension):
+        server_users = PermissionsServers.get_server_user_list(self.server_id)
+        server_path = Helpers.get_os_understandable_path(self.settings["path"])
+        level_name = self._world_level_name(server_path)
+        targets = self._dimension_chunk_dirs(server_path, level_name, dimension)
+        if not targets:
+            for user in server_users:
+                WebSocketManager().broadcast_user(
+                    user,
+                    "notification",
+                    f"No {dimension} data found to reset for {self.name}.",
+                )
+            self.stats_helper.set_update(False)
+            return
+
+        # 1) Back up first so the reset is always reversible.
+        try:
+            if len(self.management_helper.get_backups_by_server(self.server_id, True)) > 0:
+                backup_config = HelpersManagement.get_default_server_backup(
+                    self.server_id
+                )
+                self.server_backup_threader(backup_config["backup_id"], True)
+                backing_up = True
+                while backing_up:
+                    backing_up = self.check_backup_by_id(backup_config["backup_id"])
+                    time.sleep(2)
+        except Exception as e:
+            logger.error(f"[world-reset] backup step failed for {self.name}: {e}")
+
+        # 2) Stop the server if running and wait for it to release the files.
+        was_started = self.check_running()
+        if was_started:
+            self.stop_threaded_server()
+            for _ in range(60):
+                if not self.check_running():
+                    break
+                time.sleep(1)
+
+        # 3) Delete the dimension's chunk data so it regenerates fresh.
+        deleted = []
+        for target in targets:
+            try:
+                shutil.rmtree(target, ignore_errors=False)
+                deleted.append(os.path.relpath(target, server_path))
+            except Exception as e:
+                logger.error(f"[world-reset] failed to delete {target}: {e}")
+
+        logger.info(
+            f"[world-reset] {dimension} reset for {self.name}: removed {deleted}"
+        )
+        self.management_helper.add_to_audit_log_raw(
+            "System",
+            "-1",
+            self.server_id,
+            f"Reset the {dimension} (removed {', '.join(deleted) or 'nothing'}); "
+            f"it regenerates fresh on next load.",
+            self.settings.get("server_ip", ""),
+        )
+        for user in server_users:
+            WebSocketManager().broadcast_user(
+                user,
+                "notification",
+                f"{dimension.capitalize()} reset for {self.name}. "
+                f"It will regenerate fresh on next load.",
+            )
+
+        self.stats_helper.set_update(False)
+        # 4) Restart if it had been running.
+        if was_started:
+            self.run_threaded_server(HelperUsers.get_user_id_by_name("system"))
 
     def threaded_jar_update(self):
         server_users = PermissionsServers.get_server_user_list(self.server_id)

@@ -27,9 +27,16 @@
     "/panel/server_metrics",
     "/panel/server_term",
     "/server/",            // creation wizards (step1, bedrock, etc.)
-    "/panel/edit_user_apikeys",
-    "/panel/discover",     // page script lives in the js block (outside .main-panel),
-    "/panel/wiki"          // so it must full-load for that script to run
+    // Pages whose page-script is rendered outside .main-panel (in the js block)
+    // must full-load so that script actually runs after navigating to them.
+    "/panel/discover",
+    "/panel/wiki",
+    "/panel/panel_config",
+    "/panel/config_json",
+    "/panel/activity_logs",
+    "/panel/custom_login",
+    "/panel/edit_user",    // covers edit_user_apikeys / _otp / _passkey (shared prefix)
+    "/panel/edit_role"
   ];
 
   var coreHandlers = null; // snapshot of base.html's WebSocket handler count

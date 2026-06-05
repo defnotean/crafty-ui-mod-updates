@@ -3,58 +3,223 @@
 {% block meta %}
 {% end %}
 
-{% block title %}Crafty Controller - Wiki{% end %}
+{% block title %}Crafty Controller - Documentation{% end %}
 
 {% block content %}
+<div class="content-wrapper">
 
-<!-- Desktop View -->
-<div class="d-none d-sm-block content-wrapper">
-    <!-- Page Title Header Starts-->
-    <div class="row page-title-header">
-        <div class="col-12">
-            <div class="page-header">
-                <h4 class="page-title">{{ translate('sidebar', 'documentation', data['lang']) }}</h4>
-            </div>
-        </div>
+  <div class="row page-title-header">
+    <div class="col-12">
+      <div class="page-header">
+        <h4 class="page-title"><i class="ph-fill ph-book-open-text"></i> &nbsp;Documentation</h4>
+      </div>
     </div>
-    <div class="row iframe-row">
-        <div class="col-12 iframe-col">
-            <div class="iframe-wrapper">
-                <iframe title="crafty's docs" src="https://docs.craftycontrol.com/" class="iframe-item"></iframe>
-            </div>
+  </div>
+
+  <div class="row">
+    <div class="col-12 grid-margin">
+      <div class="card mc-hero">
+        <div class="card-body">
+          <h4 class="card-title mb-1">Your server control panel</h4>
+          <p class="mb-2" style="color:#bcccad;">Everything you need to run, update, and customise your Minecraft servers — version upgrades that keep progress, a Discover hub for mods &amp; modpacks, per-dimension world resets, and a live 3D map. Pick a topic below.</p>
+          <input id="doc-search" class="form-control" placeholder="Filter topics…" autocomplete="off" style="max-width:340px;">
         </div>
+      </div>
     </div>
+  </div>
+
+  <div class="row">
+    <!-- Table of contents -->
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="card doc-toc">
+        <div class="card-body">
+          <h6 class="text-muted mb-2" style="letter-spacing:.04em;">CONTENTS</h6>
+          <ul class="doc-toc-list">
+            <li><a href="#overview"><i class="ph-fill ph-house"></i> Overview</a></li>
+            <li><a href="#servers"><i class="ph-fill ph-hard-drives"></i> Managing servers</a></li>
+            <li><a href="#upgrade"><i class="ph-fill ph-arrow-fat-up"></i> Version upgrades</a></li>
+            <li><a href="#discover"><i class="ph-fill ph-compass"></i> Discover mods &amp; packs</a></li>
+            <li><a href="#world"><i class="ph-fill ph-globe-hemisphere-west"></i> World Tools</a></li>
+            <li><a href="#map"><i class="ph-fill ph-map-trifold"></i> Live Map</a></li>
+            <li><a href="#backups"><i class="ph-fill ph-floppy-disk"></i> Backups</a></li>
+            <li><a href="#players"><i class="ph-fill ph-users"></i> Players &amp; access</a></li>
+            <li><a href="#perf"><i class="ph-fill ph-gauge"></i> Performance</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="col-lg-9">
+
+      <div class="card doc-section" id="overview">
+        <div class="card-body">
+          <h4 class="doc-h"><span class="doc-ico"><i class="ph-fill ph-house"></i></span> Overview</h4>
+          <p>The dashboard lists every server with live status, player count, and CPU/RAM use. Click a server to open its detail page — terminal, files, config, backups, schedules, and the custom tabs below.</p>
+          <ul class="doc-list">
+            <li>Use the sidebar to jump between the dashboard, <b>Discover</b>, and this documentation.</li>
+            <li><b>Right-click a server card</b> for quick actions (start/stop, clone, delete).</li>
+            <li>Navigation is instant — pages swap without a full reload, and the live status keeps updating.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card doc-section" id="servers">
+        <div class="card-body">
+          <h4 class="doc-h"><span class="doc-ico"><i class="ph-fill ph-hard-drives"></i></span> Managing servers</h4>
+          <p>Open a server, then use the <b>Terminal</b> tab to watch the console and send commands. The control buttons handle the lifecycle:</p>
+          <ul class="doc-list">
+            <li><b>Start / Stop / Restart</b> — graceful start and shutdown. A start always clears any stuck/orphaned process first, so it never fails on a locked world file.</li>
+            <li><b>Kill</b> — force-stops a frozen server.</li>
+            <li><b>Config</b> — RAM (min/max), the server port, Java version, and startup flags. Recommended RAM is suggested for your machine, and the port is checked for conflicts.</li>
+            <li><b>Files</b> — browse and edit any server file in-place.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card doc-section" id="upgrade">
+        <div class="card-body">
+          <h4 class="doc-h"><span class="doc-ico"><i class="ph-fill ph-arrow-fat-up"></i></span> Version upgrades</h4>
+          <p>On a server's <b>Version Updater</b> tab, the <b>1-Click Version Upgrade</b> card shows your current version and any newer ones. Pick one and hit upgrade.</p>
+          <ul class="doc-list">
+            <li><b>Your progress is preserved.</b> Worlds, player inventories, ender chests, stats, and advancements are snapshotted, the jar is swapped, then every world is verified afterwards and restored if anything is missing.</li>
+            <li>A full backup is taken automatically before the swap.</li>
+            <li>The server restarts itself if it was running. Supports vanilla, Paper, Purpur, Folia, and Fabric.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card doc-section" id="discover">
+        <div class="card-body">
+          <h4 class="doc-h"><span class="doc-ico"><i class="ph-fill ph-compass"></i></span> Discover mods &amp; packs</h4>
+          <p>The <b>Discover</b> hub searches Modrinth for modpacks, mods, datapacks, resource packs, and shaders.</p>
+          <ul class="doc-list">
+            <li><b>Import a modpack</b> — paste a Modrinth or CurseForge link, or upload a <code>.mrpack</code> / CurseForge <code>.zip</code>. The loader and Minecraft version are detected, the server is created, and every mod is downloaded automatically.</li>
+            <li><b>Install onto a server</b> — versions are auto-filtered to that server's loader and Minecraft version, and required dependencies install automatically.</li>
+            <li>Use <b>Back / Next</b> to page through results.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card doc-section" id="world">
+        <div class="card-body">
+          <h4 class="doc-h"><span class="doc-ico"><i class="ph-fill ph-globe-hemisphere-west"></i></span> World Tools</h4>
+          <p>The <b>World Tools</b> tab regenerates a single dimension for fresh terrain and resources — ideal for periodic Nether/End resets.</p>
+          <ul class="doc-list">
+            <li><b>Reset Overworld / Nether / End</b> — only that dimension's terrain is wiped and regenerated on next load.</li>
+            <li>Player inventories, ender chests, stats, and the other dimensions are <b>kept</b>.</li>
+            <li>A full backup is taken first, and the server restarts itself if it was running.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card doc-section" id="map">
+        <div class="card-body">
+          <h4 class="doc-h"><span class="doc-ico"><i class="ph-fill ph-map-trifold"></i></span> Live Map</h4>
+          <p>The <b>Live Map</b> tab shows a live 3D render of your actual world, powered by BlueMap.</p>
+          <ul class="doc-list">
+            <li>Real terrain and builds, with <b>coordinates</b> and <b>online player positions</b> updating in real time.</li>
+            <li>Private to this dashboard — it's served behind your login and never exposed publicly.</li>
+            <li>The map fills in as it renders in the background after first install.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card doc-section" id="backups">
+        <div class="card-body">
+          <h4 class="doc-h"><span class="doc-ico"><i class="ph-fill ph-floppy-disk"></i></span> Backups</h4>
+          <p>The <b>Backup</b> tab creates and restores full server backups.</p>
+          <ul class="doc-list">
+            <li>Set how many backups to keep and which folders to exclude.</li>
+            <li>A backup is taken automatically before risky actions (version upgrades, world resets).</li>
+            <li>Restore returns the server to any saved point.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card doc-section" id="players">
+        <div class="card-body">
+          <h4 class="doc-h"><span class="doc-ico"><i class="ph-fill ph-users"></i></span> Players &amp; access</h4>
+          <ul class="doc-list">
+            <li><b>Player Controls</b> — whitelist players, op them, and ban known players from a dropdown or by name.</li>
+            <li><b>Public access</b> — your server is reachable at its public address through a self-healing tunnel that reconnects and holds the same port automatically.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card doc-section" id="perf">
+        <div class="card-body">
+          <h4 class="doc-h"><span class="doc-ico"><i class="ph-fill ph-gauge"></i></span> Performance</h4>
+          <p>To keep a server smooth and light on RAM:</p>
+          <ul class="doc-list">
+            <li>Use tuned <b>Aikar's JVM flags</b> (G1GC) instead of plain <code>-Xms/-Xmx</code> — far fewer lag spikes.</li>
+            <li>Lower <b>view-distance</b> and <b>simulation-distance</b> in Paper config for the biggest RAM/CPU win.</li>
+            <li>Cap entities and mobs per chunk, and let unused chunks unload.</li>
+            <li>Match max RAM to your players — more isn't always better; oversized heaps make GC pauses worse.</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
 </div>
-<!-- Mobile View -->
-<div class="d-sm-none content-wrapper mobile-content-wrapper">
-    <iframe title="crafty's docs" src="https://docs.craftycontrol.com/" class="iframe-item"></iframe>
-</div>
-<!-- content-wrapper ends -->
+
 <style>
-    .iframe-item {
-        height: 100%;
-        width: 100%;
-        border: none;
-    }
-
-    .iframe-wrapper {
-        height: 100%;
-    }
-
-    .iframe-col {
-        height: 100%;
-    }
-
-    .iframe-row {
-        height: 100%;
-        max-height: calc(100% - 63px);
-        padding-bottom: 1rem;
-    }
-
-    .mobile-content-wrapper {
-        padding: 0;
-    }
+  html.minecraft .doc-toc .card-body { padding: 1rem 1.1rem; }
+  .doc-toc { position: sticky; top: 1rem; }
+  .doc-toc-list { list-style: none; padding: 0; margin: 0; }
+  .doc-toc-list li { margin: 2px 0; }
+  .doc-toc-list a { display: flex; align-items: center; gap: .55rem; padding: .42rem .6rem; border-radius: 6px; color: #b9c7ab; font-size: .92rem; text-decoration: none; transition: background .12s, color .12s; }
+  .doc-toc-list a i { opacity: .8; }
+  html.minecraft .doc-toc-list a:hover { background: var(--deep-bg, #11150f); color: var(--base-text, #eaf2e6); }
+  html.minecraft .doc-toc-list a.active { background: rgba(76,175,80,.14); color: var(--mc-grass, #4caf50); border-left: 2px solid var(--mc-grass, #4caf50); }
+  .doc-section { scroll-margin-top: 1rem; }
+  .doc-h { display: flex; align-items: center; gap: .65rem; margin-bottom: .65rem; }
+  .doc-ico { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 9px; background: var(--card-banner-bg, #1a2016); border: 1px solid var(--mc-edge, #33402b); color: var(--mc-grass, #4caf50); font-size: 1.25rem; flex: 0 0 auto; }
+  .doc-list { margin: 0; padding-left: 1.1rem; }
+  .doc-list li { margin: .4rem 0; line-height: 1.5; }
+  .doc-section code { background: var(--deep-bg, #11150f); border: 1px solid var(--mc-edge, #33402b); border-radius: 4px; padding: .05rem .35rem; font-size: .85em; }
+  .doc-hide { display: none !important; }
 </style>
 
+<script>
+  (function () {
+    var toc = document.querySelectorAll('.doc-toc-list a');
+    var sections = document.querySelectorAll('.doc-section');
 
+    // smooth-scroll the TOC links
+    toc.forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        var id = a.getAttribute('href');
+        var target = id && document.querySelector(id);
+        if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      });
+    });
+
+    // scrollspy: highlight the current section in the TOC
+    if ('IntersectionObserver' in window) {
+      var obs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            var id = en.target.id;
+            toc.forEach(function (a) { a.classList.toggle('active', a.getAttribute('href') === '#' + id); });
+          }
+        });
+      }, { rootMargin: '-10% 0px -75% 0px' });
+      sections.forEach(function (s) { obs.observe(s); });
+    }
+
+    // filter topics
+    var search = document.getElementById('doc-search');
+    if (search) {
+      search.addEventListener('input', function () {
+        var q = search.value.trim().toLowerCase();
+        sections.forEach(function (s) {
+          var hit = !q || s.textContent.toLowerCase().indexOf(q) !== -1;
+          s.classList.toggle('doc-hide', !hit);
+        });
+      });
+    }
+  })();
+</script>
 {% end %}

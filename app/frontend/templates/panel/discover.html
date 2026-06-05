@@ -116,8 +116,11 @@
 
 {% block js %}
 <script>
-  let MR_SERVERS = [];
   (function () {
+    // Function-scoped so re-running this script on client-side (pjax) navigation
+    // doesn't hit a top-level `let` redeclaration SyntaxError (which previously
+    // killed the whole init, so Discover only loaded after a full refresh).
+    let MR_SERVERS = [];
     const el = (id) => document.getElementById(id);
     const results = el('mr-results'), status = el('mr-status');
     const xsrf = () => getCookie('_xsrf');

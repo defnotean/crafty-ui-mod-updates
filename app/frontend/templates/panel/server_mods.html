@@ -145,6 +145,32 @@
             </div>
         </div>
     </div>
+
+    <div class="row">
+      <div class="col-sm-12 grid-margin">
+        <div class="card mc-hero">
+          <div class="card-body">
+            <h4 class="card-title"><i class="ph-fill ph-magnifying-glass"></i> &nbsp;Browse &amp; add mods</h4>
+            <p class="text-muted mb-3" style="font-size:.88rem;">Search Modrinth and install mods straight into this server. Versions are filtered to your loader &amp; Minecraft version (set above), and required dependencies install automatically.</p>
+            <div class="row align-items-end">
+              <div class="col-lg-8 col-md-7 form-group mb-2">
+                <label for="modfind-q">Search mods</label>
+                <input id="modfind-q" class="form-control" placeholder="e.g. sodium, create, fabric api…" autocomplete="off">
+              </div>
+              <div class="col-lg-2 col-md-3 form-group mb-2">
+                <label for="modfind-gv">MC Version</label>
+                <input id="modfind-gv" class="form-control" placeholder="auto" autocomplete="off">
+              </div>
+              <div class="col-lg-2 col-md-2 form-group mb-2">
+                <button id="modfind-go" class="btn btn-primary btn-block"><i class="ph-bold ph-magnifying-glass"></i>&nbsp;Search</button>
+              </div>
+            </div>
+            <div id="modfind-status" class="text-muted small mb-2"></div>
+            <div class="row" id="modfind-results"></div>
+          </div>
+        </div>
+      </div>
+    </div>
 </div>
 {% end %}
 
@@ -343,6 +369,99 @@
         if (auMc) auMc.addEventListener("change", save);
         auFreq.addEventListener("change", save);
         load();
+    })();
+
+    // ---- browse & add mods (Modrinth search -> install to this server) ----
+    (function () {
+        var q = document.getElementById('modfind-q'),
+            gv = document.getElementById('modfind-gv'),
+            go = document.getElementById('modfind-go'),
+            mfStatus = document.getElementById('modfind-status'),
+            mfResults = document.getElementById('modfind-results');
+        if (!go) return;
+        var xsrf = function () { return getCookie('_xsrf'); };
+        function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+        function fmtDl(n) { n = +n || 0; return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : n; }
+
+        function activeLoader() { return loaderInput ? loaderInput.value : ''; }
+        function activeVersion() { return (gv.value.trim() || (gameVersionInput ? gameVersionInput.value.trim() : '')); }
+
+        async function search() {
+            var loader = activeLoader(), ver = activeVersion();
+            mfStatus.textContent = 'Searching Modrinth…'; mfResults.innerHTML = '';
+            var url = '/api/v2/crafty/modrinth/search?type=mod&limit=24&offset=0&index=downloads';
+            if (q.value.trim()) url += '&q=' + encodeURIComponent(q.value.trim());
+            if (loader) url += '&loader=' + encodeURIComponent(loader);
+            if (ver) url += '&game_version=' + encodeURIComponent(ver);
+            try {
+                var r = await fetch(url, { headers: { 'X-XSRFToken': xsrf() } });
+                var d = await r.json();
+                if (d.status !== 'ok') { mfStatus.textContent = 'Search failed: ' + (d.error_data || d.error); return; }
+                var hits = d.data.hits || [];
+                if (!hits.length) { mfStatus.textContent = 'No mods found.'; return; }
+                mfStatus.textContent = hits.length + ' result(s)' + (loader ? ' · ' + loader : '') + (ver ? ' ' + ver : '');
+                hits.forEach(function (h) { mfResults.appendChild(card(h, loader, ver)); });
+            } catch (e) { mfStatus.textContent = 'Search error: ' + e; }
+        }
+
+        function card(hit, loader, ver) {
+            var icon = hit.icon_url || '/static/assets/images/pack.png';
+            var div = document.createElement('div');
+            div.className = 'col-lg-4 col-md-6 grid-margin';
+            div.innerHTML =
+                '<div class="card h-100"><div class="card-body d-flex flex-column">' +
+                '<div class="d-flex align-items-center mb-2">' +
+                '<img src="' + esc(icon) + '" onerror="this.src=\'/static/assets/images/pack.png\'" style="width:42px;height:42px;border-radius:8px;object-fit:cover;border:1px solid var(--mc-edge);flex:0 0 auto;">' +
+                '<div class="ml-2" style="min-width:0;"><h6 class="mb-0 text-truncate">' + esc(hit.title) + '</h6>' +
+                '<small class="text-muted">by ' + esc(hit.author) + ' · <i class="ph-fill ph-download-simple"></i> ' + fmtDl(hit.downloads) + '</small></div></div>' +
+                '<p class="mb-2" style="font-size:.8rem;color:#aebda0;flex:1;overflow:hidden;max-height:3.6em;">' + esc(hit.description) + '</p>' +
+                '<button class="btn btn-sm btn-outline-success mt-auto modfind-install">Install</button>' +
+                '<div class="modfind-msg small mt-1"></div>' +
+                '</div></div>';
+            var btn = div.querySelector('.modfind-install'), msg = div.querySelector('.modfind-msg');
+            btn.addEventListener('click', function () { install(hit, activeLoader(), activeVersion(), btn, msg); });
+            return div;
+        }
+
+        async function install(hit, loader, ver, btn, msg) {
+            btn.disabled = true; msg.innerHTML = '<i class="ph ph-spinner-gap ph-spin"></i> Installing…';
+            var vurl = '/api/v2/crafty/modrinth/project/' + hit.project_id + '/versions';
+            var qs = [];
+            if (loader) qs.push('loader=' + encodeURIComponent(loader));
+            if (ver) qs.push('game_version=' + encodeURIComponent(ver));
+            if (qs.length) vurl += '?' + qs.join('&');
+            try {
+                var r = await fetch(vurl, { headers: { 'X-XSRFToken': xsrf() } });
+                var d = await r.json();
+                var versions = (d.status === 'ok' && d.data.versions) || [];
+                if (!versions.length) { msg.innerHTML = '<span class="text-warning">No version for ' + esc(loader || 'this loader') + ' ' + esc(ver || '') + '.</span>'; btn.disabled = false; return; }
+                var payload = { content_type: 'mod', project_id: hit.project_id, version_id: versions[0].id };
+                if (loader) payload.loader = loader;
+                if (ver) payload.game_version = ver;
+                var ir = await fetch('/api/v2/servers/' + modsServerId + '/content/install', {
+                    method: 'POST', headers: { 'X-XSRFToken': xsrf(), 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                });
+                var id = await ir.json();
+                if (id.status === 'ok') {
+                    var inst = id.data.installed || {}, deps = inst.dependencies || 0;
+                    msg.innerHTML = '<span class="text-success"><i class="ph-fill ph-check-circle"></i> Installed' + (deps ? ' (+' + deps + ' dep' + (deps > 1 ? 's' : '') + ')' : '') + '!</span>';
+                    btn.textContent = 'Installed'; btn.className = 'btn btn-sm btn-success mt-auto';
+                } else { msg.innerHTML = '<span class="text-danger">' + esc(id.error_data || id.error) + '</span>'; btn.disabled = false; }
+            } catch (e) { msg.innerHTML = '<span class="text-danger">' + e + '</span>'; btn.disabled = false; }
+        }
+
+        go.addEventListener('click', search);
+        q.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); search(); } });
+        // auto-detect this server's loader + version, then show popular compatible mods
+        fetch('/api/v2/servers/' + modsServerId + '/content', { headers: { 'X-XSRFToken': xsrf() } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (d.status === 'ok') {
+                    if (d.data.loader && loaderInput && !loaderInput.value) loaderInput.value = d.data.loader;
+                    if (d.data.game_version && gameVersionInput && !gameVersionInput.value) gameVersionInput.value = d.data.game_version;
+                    if (d.data.game_version) gv.placeholder = d.data.game_version;
+                }
+            }).catch(function () {}).finally(function () { search(); });
     })();
 </script>
 {% end %}

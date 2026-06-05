@@ -202,6 +202,7 @@ html.minecraft textarea,
 html.minecraft input[type="text"],
 html.minecraft input[type="password"],
 html.minecraft input[type="number"],
+html.minecraft input[type="file"],
 html.minecraft input[type="email"] {
   background: var(--deep-bg);
   border: 1px solid var(--mc-edge);
@@ -218,6 +219,48 @@ html.minecraft input:focus {
 }
 html.minecraft .form-control::placeholder { color: #6f7a5f; }
 html.minecraft label { color: #b9c7ab; }
+
+/* ---- file inputs: theme the native "Choose File" button + filename text --- */
+html.minecraft input[type="file"] {
+  padding: 0.32rem 0.55rem;
+  cursor: pointer;
+  color: #b9c7ab;
+}
+html.minecraft input[type="file"]::file-selector-button {
+  background: var(--card-banner-bg, #1a2016);
+  color: var(--base-text);
+  border: 1px solid var(--mc-edge);
+  border-radius: 5px;
+  padding: 0.32rem 0.85rem;
+  margin-right: 0.75rem;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+html.minecraft input[type="file"]::file-selector-button:hover {
+  background: var(--mc-grass);
+  color: #10140d;
+  border-color: var(--mc-grass);
+}
+/* WebKit/Blink fallback (older Chrome/Safari that lack ::file-selector-button) */
+html.minecraft input[type="file"]::-webkit-file-upload-button {
+  background: var(--card-banner-bg, #1a2016);
+  color: var(--base-text);
+  border: 1px solid var(--mc-edge);
+  border-radius: 5px;
+  padding: 0.32rem 0.85rem;
+  margin-right: 0.75rem;
+  cursor: pointer;
+  font-weight: 600;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+html.minecraft input[type="file"]::-webkit-file-upload-button:hover {
+  background: var(--mc-grass);
+  color: #10140d;
+  border-color: var(--mc-grass);
+}
 
 /* ---- tables / DataTables ------------------------------------------------- */
 html.minecraft .table { color: var(--base-text); }

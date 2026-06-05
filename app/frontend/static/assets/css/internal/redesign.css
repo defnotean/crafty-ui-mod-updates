@@ -9,6 +9,7 @@
 /* ---- design tokens (local to the redesign) ------------------------------- */
 html.minecraft {
   --mc-grass: #4caf50;
+  --mc-grass-rgb: 76, 175, 80; /* accent as an RGB triple, for rgba() glows/tints */
   --mc-grass-dark: #3e9a43;
   --mc-grass-deep: #2f7a34;
   --mc-dirt: #c58b3a;
@@ -25,7 +26,7 @@ html.minecraft {
 html.minecraft body,
 html.minecraft .container-scroller {
   background:
-    radial-gradient(1100px 520px at 82% -8%, rgba(76, 175, 80, 0.10), transparent 60%),
+    radial-gradient(1100px 520px at 82% -8%, rgba(var(--mc-grass-rgb),0.10), transparent 60%),
     radial-gradient(900px 480px at -8% 112%, rgba(197, 139, 58, 0.07), transparent 60%),
     var(--deep-bg);
   color: var(--base-text);
@@ -78,7 +79,7 @@ html.minecraft .mc-hero {
   border: 1px solid var(--mc-edge);
   border-radius: var(--mc-radius);
   background:
-    linear-gradient(120deg, rgba(76, 175, 80, 0.18), rgba(197, 139, 58, 0.10) 60%, transparent),
+    linear-gradient(120deg, rgba(var(--mc-grass-rgb),0.18), rgba(197, 139, 58, 0.10) 60%, transparent),
     var(--card-banner-bg);
   box-shadow: var(--mc-shadow);
 }
@@ -149,7 +150,7 @@ html.minecraft .sidebar .nav .nav-item .nav-link:hover {
 }
 html.minecraft .sidebar .nav .nav-item.active > .nav-link,
 html.minecraft .sidebar .nav .nav-item .nav-link.active {
-  background: linear-gradient(90deg, rgba(76, 175, 80, 0.18), transparent);
+  background: linear-gradient(90deg, rgba(var(--mc-grass-rgb),0.18), transparent);
   color: #eaf2e6;
   position: relative;
 }
@@ -177,14 +178,14 @@ html.minecraft .navbar::after {
 html.minecraft .navbar .navbar-brand-wrapper { background: var(--deep-bg) !important; border-right: 1px solid var(--mc-edge); }
 html.minecraft .navbar .nav-profile-img,
 html.minecraft .navbar .profile-picture img {
-  border-radius: 6px; border: 2px solid var(--mc-edge); box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.25);
+  border-radius: 6px; border: 2px solid var(--mc-edge); box-shadow: 0 0 0 2px rgba(var(--mc-grass-rgb),0.25);
 }
 html.minecraft .navbar .count-indicator .count,
 html.minecraft .badge-notify { background: var(--mc-redstone); }
 
 /* ---- status pills -------------------------------------------------------- */
 html.minecraft .badge { border-radius: 5px; font-weight: 600; letter-spacing: 0.2px; }
-html.minecraft .badge-success, html.minecraft .label-success { background: rgba(76, 175, 80, 0.18); color: #8fe09a; border: 1px solid rgba(76, 175, 80, 0.4); }
+html.minecraft .badge-success, html.minecraft .label-success { background: rgba(var(--mc-grass-rgb),0.18); color: #8fe09a; border: 1px solid rgba(var(--mc-grass-rgb),0.4); }
 html.minecraft .badge-danger,  html.minecraft .label-danger  { background: rgba(211, 75, 58, 0.16); color: #f0a79c; border: 1px solid rgba(211, 75, 58, 0.4); }
 html.minecraft .badge-warning, html.minecraft .label-warning { background: rgba(197, 139, 58, 0.16); color: #e8c08a; border: 1px solid rgba(197, 139, 58, 0.4); }
 html.minecraft .badge-info { background: rgba(79, 159, 214, 0.16); color: #a9d4f0; border: 1px solid rgba(79, 159, 214, 0.4); }
@@ -214,7 +215,7 @@ html.minecraft select:focus,
 html.minecraft textarea:focus,
 html.minecraft input:focus {
   border-color: var(--mc-grass);
-  box-shadow: 0 0 0 0.18rem rgba(76, 175, 80, 0.25);
+  box-shadow: 0 0 0 0.18rem rgba(var(--mc-grass-rgb),0.25);
   background: var(--deep-bg); color: var(--base-text);
 }
 html.minecraft .form-control::placeholder { color: #6f7a5f; }
@@ -270,7 +271,7 @@ html.minecraft .table thead th {
 }
 html.minecraft .table td, html.minecraft .table th { border-color: var(--mc-edge); }
 html.minecraft .table tbody tr { transition: background 0.12s ease; }
-html.minecraft .table tbody tr:hover { background: rgba(76, 175, 80, 0.06); }
+html.minecraft .table tbody tr:hover { background: rgba(var(--mc-grass-rgb),0.06); }
 html.minecraft .dataTables_wrapper .dataTables_paginate .paginate_button {
   background: var(--mc-panel-2) !important; border: 1px solid var(--mc-edge) !important; color: var(--base-text) !important; border-radius: 5px;
 }
@@ -345,7 +346,7 @@ html.minecraft .mc-chip {
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 .cs-button:hover { border-color: var(--primary, #4caf50); }
-.cs-wrap.cs-open .cs-button { border-color: var(--primary, #4caf50); box-shadow: 0 0 0 0.18rem rgba(76, 175, 80, 0.22); }
+.cs-wrap.cs-open .cs-button { border-color: var(--primary, #4caf50); box-shadow: 0 0 0 0.18rem rgba(var(--mc-grass-rgb),0.22); }
 .cs-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cs-label.cs-placeholder { color: #7e886e; }
 .cs-caret { font-size: 0.8em; opacity: 0.8; transition: transform 0.15s ease; flex: 0 0 auto; }
@@ -370,13 +371,13 @@ html.minecraft .mc-chip {
 .cs-option.cs-selected::after { content: "\2714"; float: right; opacity: 0.9; margin-left: 8px; }
 .cs-option.cs-opt-disabled { opacity: 0.4; cursor: not-allowed; }
 html.minecraft .cs-button { background: linear-gradient(180deg, var(--deep-bg), #14180f); }
-html.minecraft .cs-option.cs-active, html.minecraft .cs-option:hover { background: rgba(76, 175, 80, 0.16); }
+html.minecraft .cs-option.cs-active, html.minecraft .cs-option:hover { background: rgba(var(--mc-grass-rgb),0.16); }
 
 /* match bootstrap-select (create-server wizard) to the theme */
 .bootstrap-select > .dropdown-toggle { background: var(--deep-bg, #111) !important; color: var(--base-text, #ddd) !important; border: 1px solid var(--outline, #444) !important; border-radius: 6px !important; }
 .bootstrap-select .dropdown-menu { background: var(--dropdown-bg, #1b1b1b); border: 1px solid var(--outline, #444); }
 .bootstrap-select .dropdown-menu li a { color: var(--base-text, #ddd); }
-.bootstrap-select .dropdown-menu li a:hover, .bootstrap-select .dropdown-menu li.selected a { background: rgba(76, 175, 80, 0.16); color: #fff; }
+.bootstrap-select .dropdown-menu li a:hover, .bootstrap-select .dropdown-menu li.selected a { background: rgba(var(--mc-grass-rgb),0.16); color: #fff; }
 
 /* ============================================================================
  * Fast-navigation (pjax) loading bar + transition. Paired with navigation.js.
@@ -393,7 +394,7 @@ html.minecraft .cs-option.cs-active, html.minecraft .cs-option:hover { backgroun
 html.minecraft .content-wrapper.auth,
 html.minecraft .auth.auth-bg-1 {
   background:
-    radial-gradient(1200px 720px at 50% -12%, rgba(76, 175, 80, 0.16), transparent 60%),
+    radial-gradient(1200px 720px at 50% -12%, rgba(var(--mc-grass-rgb),0.16), transparent 60%),
     linear-gradient(180deg, #0e1209, #11150f 60%, #0c0f08) !important;
   position: relative;
 }
@@ -468,7 +469,7 @@ html.minecraft select option, html.minecraft select optgroup { background: var(-
 html.minecraft .bootstrap-select > .dropdown-toggle { background: linear-gradient(180deg, var(--deep-bg), #14180f) !important; }
 .bootstrap-select > .dropdown-toggle:focus,
 .bootstrap-select > .dropdown-toggle:focus-visible {
-  outline: none !important; border-color: var(--primary) !important; box-shadow: 0 0 0 0.18rem rgba(76, 175, 80, 0.22) !important;
+  outline: none !important; border-color: var(--primary) !important; box-shadow: 0 0 0 0.18rem rgba(var(--mc-grass-rgb),0.22) !important;
 }
 .bootstrap-select > .dropdown-toggle:after { border-top-color: var(--base-text) !important; margin-left: 8px; }
 .bootstrap-select .filter-option-inner-inner { color: var(--base-text) !important; }
@@ -481,8 +482,8 @@ html.minecraft .bootstrap-select > .dropdown-toggle { background: linear-gradien
 .bootstrap-select .dropdown-menu li a .text { color: inherit !important; }
 .bootstrap-select .dropdown-menu li a:hover,
 .bootstrap-select .dropdown-menu li a:focus,
-.bootstrap-select .dropdown-menu li.active a { background: rgba(76, 175, 80, 0.16) !important; color: #fff !important; }
-.bootstrap-select .dropdown-menu li.selected a { background: rgba(76, 175, 80, 0.22) !important; color: #fff !important; }
+.bootstrap-select .dropdown-menu li.active a { background: rgba(var(--mc-grass-rgb),0.16) !important; color: #fff !important; }
+.bootstrap-select .dropdown-menu li.selected a { background: rgba(var(--mc-grass-rgb),0.22) !important; color: #fff !important; }
 .bootstrap-select .dropdown-menu li.disabled a { color: #6f7a5f !important; }
 .bootstrap-select .bs-searchbox .form-control {
   background: var(--deep-bg) !important; border: 1px solid var(--outline) !important; color: var(--base-text) !important; border-radius: 5px;
@@ -552,7 +553,7 @@ html.minecraft .sidebar .sub-menu .nav-item .nav-link:hover {
 }
 html.minecraft .sidebar .sub-menu .nav-item .nav-link:hover i { color: var(--mc-grass) !important; }
 html.minecraft .sidebar .sub-menu .nav-item .nav-link.active {
-  background: linear-gradient(90deg, rgba(76, 175, 80, 0.18), transparent) !important; color: #eaf2e6 !important;
+  background: linear-gradient(90deg, rgba(var(--mc-grass-rgb),0.18), transparent) !important; color: #eaf2e6 !important;
 }
 /* StarAdmin draws a 2px tree-connector line (::before) at left:35px; after our
    tighter sub-menu padding it overlapped the icon/text — remove it. */

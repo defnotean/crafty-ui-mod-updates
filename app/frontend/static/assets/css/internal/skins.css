@@ -8,70 +8,70 @@
 
 /* Nether — crimson + ember */
 html.minecraft[data-skin="nether"] {
-  --primary: #e0533a; --mc-grass: #e0533a; --info: #d98b4a;
+  --primary: #e0533a; --mc-grass: #e0533a; --mc-grass-rgb: 224, 83, 58; --info: #d98b4a;
   --deep-bg: #160d0c; --base-bg: #211210; --card-banner-bg: #2a1613;
   --select-bg: #241412; --ram-bg: #241412; --dropdown-bg: #1c100e; --tooltip-bg: #100807;
   --outline: #4a2620; --mc-edge: #4a2620; --base-text: #f0dcd6; --secondary: #3a1f1a;
 }
 /* The End — violet + void */
 html.minecraft[data-skin="end"] {
-  --primary: #a986e0; --mc-grass: #a986e0; --info: #8f7fd6;
+  --primary: #a986e0; --mc-grass: #a986e0; --mc-grass-rgb: 169, 134, 224; --info: #8f7fd6;
   --deep-bg: #100d18; --base-bg: #181426; --card-banner-bg: #1e1830;
   --select-bg: #1b1530; --ram-bg: #1b1530; --dropdown-bg: #15101f; --tooltip-bg: #0c0a14;
   --outline: #36305a; --mc-edge: #36305a; --base-text: #e6dff5; --secondary: #261f40;
 }
 /* Ocean — deep-sea blue */
 html.minecraft[data-skin="ocean"] {
-  --primary: #2fa8d4; --mc-grass: #2fa8d4; --info: #57c7d4;
+  --primary: #2fa8d4; --mc-grass: #2fa8d4; --mc-grass-rgb: 47, 168, 212; --info: #57c7d4;
   --deep-bg: #0a1016; --base-bg: #0f1a24; --card-banner-bg: #12222e;
   --select-bg: #122230; --ram-bg: #122230; --dropdown-bg: #0d1925; --tooltip-bg: #060d12;
   --outline: #1f3a4a; --mc-edge: #1f3a4a; --base-text: #d6e8f2; --secondary: #16303f;
 }
 /* Cherry — sakura pink */
 html.minecraft[data-skin="cherry"] {
-  --primary: #e8709e; --mc-grass: #e8709e; --info: #d68bb0;
+  --primary: #e8709e; --mc-grass: #e8709e; --mc-grass-rgb: 232, 112, 158; --info: #d68bb0;
   --deep-bg: #160f12; --base-bg: #20151a; --card-banner-bg: #2a1b22;
   --select-bg: #261820; --ram-bg: #261820; --dropdown-bg: #1d1218; --tooltip-bg: #100a0d;
   --outline: #4a2b38; --mc-edge: #4a2b38; --base-text: #f5deea; --secondary: #3a2530;
 }
 /* Gold — desert amber */
 html.minecraft[data-skin="gold"] {
-  --primary: #e0a93a; --mc-grass: #e0a93a; --info: #e2c044;
+  --primary: #e0a93a; --mc-grass: #e0a93a; --mc-grass-rgb: 224, 169, 58; --info: #e2c044;
   --deep-bg: #14110a; --base-bg: #1e1810; --card-banner-bg: #271f12;
   --select-bg: #231c11; --ram-bg: #231c11; --dropdown-bg: #1a150c; --tooltip-bg: #0e0b06;
   --outline: #463a1f; --mc-edge: #463a1f; --base-text: #f2e8d2; --secondary: #38301a;
 }
 /* Midnight — slate + indigo, minimal */
 html.minecraft[data-skin="midnight"] {
-  --primary: #5b8def; --mc-grass: #5b8def; --info: #6f9bf0;
+  --primary: #5b8def; --mc-grass: #5b8def; --mc-grass-rgb: 91, 141, 239; --info: #6f9bf0;
   --deep-bg: #0b0d12; --base-bg: #11141c; --card-banner-bg: #161a24;
   --select-bg: #151823; --ram-bg: #151823; --dropdown-bg: #10131b; --tooltip-bg: #07080c;
   --outline: #2a3144; --mc-edge: #2a3144; --base-text: #dae0ec; --secondary: #1c2030;
 }
 /* Sculk — Deep Dark, eerie teal on near-black */
 html.minecraft[data-skin="sculk"] {
-  --primary: #1fb8b0; --mc-grass: #1fb8b0; --info: #2fd0c6;
+  --primary: #1fb8b0; --mc-grass: #1fb8b0; --mc-grass-rgb: 31, 184, 176; --info: #2fd0c6;
   --deep-bg: #070a0c; --base-bg: #0c1214; --card-banner-bg: #0f1a1c;
   --select-bg: #0e181a; --ram-bg: #0e181a; --dropdown-bg: #0a1213; --tooltip-bg: #040707;
   --outline: #163034; --mc-edge: #163034; --base-text: #cfe6e3; --secondary: #122628;
 }
 /* Lava — molten orange */
 html.minecraft[data-skin="lava"] {
-  --primary: #ff7a1a; --mc-grass: #ff7a1a; --info: #ffb300;
+  --primary: #ff7a1a; --mc-grass: #ff7a1a; --mc-grass-rgb: 255, 122, 26; --info: #ffb300;
   --deep-bg: #140c06; --base-bg: #1f1208; --card-banner-bg: #281709;
   --select-bg: #23150a; --ram-bg: #23150a; --dropdown-bg: #190f07; --tooltip-bg: #0d0703;
   --outline: #4a2c12; --mc-edge: #4a2c12; --base-text: #f5e2cf; --secondary: #3a2410;
 }
 /* Slime — bright lime */
 html.minecraft[data-skin="slime"] {
-  --primary: #8fd44a; --mc-grass: #8fd44a; --info: #6fbf3f;
+  --primary: #8fd44a; --mc-grass: #8fd44a; --mc-grass-rgb: 143, 212, 74; --info: #6fbf3f;
   --deep-bg: #0d120a; --base-bg: #141c10; --card-banner-bg: #1a2614;
   --select-bg: #172213; --ram-bg: #172213; --dropdown-bg: #11190d; --tooltip-bg: #080d06;
   --outline: #2e451f; --mc-edge: #2e451f; --base-text: #e3f0d4; --secondary: #24361a;
 }
 /* Amethyst — vivid magenta */
 html.minecraft[data-skin="amethyst"] {
-  --primary: #c850f0; --mc-grass: #c850f0; --info: #d97ff5;
+  --primary: #c850f0; --mc-grass: #c850f0; --mc-grass-rgb: 200, 80, 240; --info: #d97ff5;
   --deep-bg: #120a16; --base-bg: #1c1226; --card-banner-bg: #251630;
   --select-bg: #201430; --ram-bg: #201430; --dropdown-bg: #170e20; --tooltip-bg: #0c0712;
   --outline: #44285a; --mc-edge: #44285a; --base-text: #efddf7; --secondary: #311f40;

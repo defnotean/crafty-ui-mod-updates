@@ -156,17 +156,22 @@ class ServerOutBuf:
         text_wrapper = io.TextIOWrapper(
             self.proc.stdout, encoding="UTF-8", errors="ignore", newline=""
         )
-        while True:
-            if self.proc.poll() is None:
-                char = text_wrapper.read(1)  # modified
-                # TODO: we may want to benchmark reading in blocks and userspace
-                # processing it later, reads are kind of expensive as a syscall
-                self.process_byte(char)
-            else:
-                flush = text_wrapper.read()  # modified
-                for char in flush:
-                    self.process_byte(char)
-                break
+        buf = ServerOutBuf.lines[self.server_id]
+        # Read WHOLE LINES instead of one byte at a time. The old loop ran a
+        # read(1) + proc.poll() + per-char append for EVERY byte the server
+        # logged — thousands of syscalls per second and constant CPU on this
+        # supervisor thread. readline() blocks efficiently until a full line, so
+        # the thread is near-idle between log lines (the natural unit anyway).
+        try:
+            for raw in iter(text_wrapper.readline, ""):
+                line = raw.rstrip("\r\n")
+                buf.append(line)
+                # Trim the in-memory scrollback to the configured size.
+                if len(buf) > self.max_lines:
+                    del buf[: len(buf) - self.max_lines]
+                self.new_line_handler(line)
+        except (ValueError, OSError):
+            pass  # stdout pipe closed mid-read
         # process has exited; if it was a wrong-Java start, self-heal + retry
         if self.server_instance is not None:
             try:
@@ -189,6 +194,12 @@ class ServerOutBuf:
                     self.server_instance._note_java_error(needed)
             except Exception:  # noqa: BLE001
                 pass
+
+        # Skip the ANSI-strip + escape + colorize + broadcast unless a panel
+        # client is actually watching this console. The raw line is already
+        # buffered for scrollback, so with nobody connected this is pure waste.
+        if len(WebSocketManager().clients) == 0:
+            return
 
         new_line = re.sub("(\033\\[(0;)?[0-9]*[A-z]?(;[0-9])?m?)", " ", new_line)
         new_line = re.sub("[A-z]{2}\b\b", "", new_line)

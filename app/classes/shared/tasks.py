@@ -60,6 +60,7 @@ class ScheduleJobData(TypedDict):
     enabled: bool
     one_time: bool
     cron_string: str
+    timezone: str
     parent: int | None
     delay: int
     action_id: Optional[str | None]
@@ -198,6 +199,8 @@ class TasksManager:
                         )
                 case "update_executable":
                     svr.server_upgrade()
+                case "update_mods":
+                    svr.update_mods()
                 case _:
                     svr.send_command(command)
 
@@ -330,6 +333,7 @@ class TasksManager:
         interval_type: str,
         start_time: str,
         cron_string: str,
+        timezone: str | None = None,
     ) -> Job:
         """Add a queue_command job to APScheduler from normalized schedule values.
 
@@ -338,12 +342,13 @@ class TasksManager:
         while creating the scheduler job.
         """
         command_args = [command_data]
+        schedule_timezone = timezone or str(self.tz)
         if cron_string != "":
             return cast(
                 Job,
                 self.scheduler.add_job(
                     self.controller.management.queue_command,
-                    CronTrigger.from_crontab(cron_string, timezone=str(self.tz)),
+                    CronTrigger.from_crontab(cron_string, timezone=schedule_timezone),
                     id=str(sch_id),
                     args=command_args,
                 ),
@@ -359,6 +364,7 @@ class TasksManager:
                 "day": f"*/{interval}",
                 "hour": curr_time[0],
                 "minute": curr_time[1],
+                "timezone": schedule_timezone,
             }
 
         return cast(
@@ -383,6 +389,7 @@ class TasksManager:
         interval_value = cast(int | str, schedule.interval)
         interval_type = cast(str, schedule.interval_type)
         cron_string = cast(str, schedule.cron_string)
+        timezone = cast(str, schedule.timezone or "")
 
         if interval_value == "reaction":
             return None
@@ -402,6 +409,7 @@ class TasksManager:
                     interval_type,
                     cast(str, schedule.start_time),
                     cron_string,
+                    timezone,
                 )
             except Exception as e:
                 Console.error(f"Failed to schedule task with error: {e}.")
@@ -427,6 +435,7 @@ class TasksManager:
             interval_type,
             cast(str, schedule.start_time),
             cron_string,
+            timezone,
         )
 
     def scheduler_thread(self) -> None:
@@ -490,6 +499,7 @@ class TasksManager:
             job_data["enabled"],
             job_data["one_time"],
             job_data["cron_string"],
+            job_data.get("timezone", ""),
             job_data["parent"],
             job_data["delay"],
             job_data.get("action_id", None),
@@ -526,6 +536,7 @@ class TasksManager:
                     job_data["interval_type"],
                     job_data["start_time"],
                     job_data["cron_string"],
+                    job_data.get("timezone", ""),
                 )
             except Exception as e:
                 new_job = "error"
@@ -544,6 +555,7 @@ class TasksManager:
                     job_data["interval_type"],
                     job_data["start_time"],
                     job_data["cron_string"],
+                    job_data.get("timezone", ""),
                 )
         logger.info("Added job. Current enabled schedules: ")
         jobs = self.scheduler.get_jobs()
@@ -660,6 +672,7 @@ class TasksManager:
                     job_data["interval_type"],
                     job_data["start_time"],
                     job_data["cron_string"],
+                    job_data.get("timezone", ""),
                 )
             except Exception as e:
                 new_job = "error"

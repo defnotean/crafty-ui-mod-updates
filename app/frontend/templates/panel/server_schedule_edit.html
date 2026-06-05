@@ -112,6 +112,8 @@
                         <label for="time">{{ translate('serverScheduleConfig', 'time' , data['lang']) }} <small class="text-muted ml-1"> - {{ translate('serverScheduleConfig', 'time-explain' ,
                             data['lang']) }}</small> </label>
                         <input type="time" class="form-control" name="start_time" id="time" value="{{ data['schedule']['time']  }}" placeholder="Time" required>
+                        <input type="hidden" name="timezone" id="timezone" value="{{ data['schedule']['timezone'] }}">
+                        <small class="text-muted" id="timezone_hint"></small>
                       </div>
                     </div>
                   </div>
@@ -248,8 +250,14 @@
 
     const serverId = new URLSearchParams(document.location.search).get('id');
     const schId = new URLSearchParams(document.location.search).get('sch_id');
+    function setBrowserTimezone() {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "{{ data['schedule']['timezone'] }}";
+      $("#timezone").val(timezone);
+      $("#timezone_hint").text(`Timezone: ${timezone}`);
+    }
     $(document).ready(function () {
       console.log("ready!");
+      setBrowserTimezone();
       $("#new_schedule_form").on("submit", async function (e) {
         e.preventDefault();
         const token = getCookie("_xsrf")

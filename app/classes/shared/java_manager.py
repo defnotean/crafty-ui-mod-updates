@@ -36,9 +36,7 @@ logger = logging.getLogger(__name__)
 
 
 class JavaManager:
-    MANIFEST_URL = (
-        "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
-    )
+    MANIFEST_URL = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
     ADOPTIUM = (
         "https://api.adoptium.net/v3/binary/latest/{major}/ga/"
         "{os}/{arch}/jre/hotspot/normal/eclipse"
@@ -48,7 +46,7 @@ class JavaManager:
     def __init__(self, base_dir=None):
         self._base = base_dir
         self._manifest_index = None  # version id -> url
-        self._ver_major = {}         # version id -> java major
+        self._ver_major = {}  # version id -> java major
         self._lock = threading.Lock()
         self._dl_locks = {}
 
@@ -299,9 +297,7 @@ class JavaManager:
     def _download_and_install(self, major):
         os.makedirs(self.base, exist_ok=True)
         dest = os.path.join(self.base, str(major))
-        url = self.ADOPTIUM.format(
-            major=major, os=self._os_name(), arch=self._arch()
-        )
+        url = self.ADOPTIUM.format(major=major, os=self._os_name(), arch=self._arch())
         logger.info(
             "Auto-Java: downloading Temurin JRE %s for %s/%s …",
             major,
@@ -311,7 +307,11 @@ class JavaManager:
         tmp = tempfile.mkdtemp(prefix=f"jre{major}-")
         try:
             with requests.get(
-                url, headers=self.HEADERS, stream=True, timeout=600, allow_redirects=True
+                url,
+                headers=self.HEADERS,
+                stream=True,
+                timeout=600,
+                allow_redirects=True,
             ) as resp:
                 resp.raise_for_status()
                 name = resp.url.split("?")[0].split("/")[-1] or f"jre{major}.bin"

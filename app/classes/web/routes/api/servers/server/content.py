@@ -76,8 +76,9 @@ class ApiServersServerContentHandler(BaseApiHandler):
             ),
             auth_data[5],
         )
-        if EnumPermissionsServer.FILES not in self.controller.server_perms.get_permissions(
-            mask
+        if (
+            EnumPermissionsServer.FILES
+            not in self.controller.server_perms.get_permissions(mask)
         ):
             self.finish_json(
                 400,
@@ -93,7 +94,11 @@ class ApiServersServerContentHandler(BaseApiHandler):
         return auth_data
 
     def _server_compat(self, server_id, server_data=None):
-        srv = server_data or self.controller.servers.get_server_data_by_id(server_id) or {}
+        srv = (
+            server_data
+            or self.controller.servers.get_server_data_by_id(server_id)
+            or {}
+        )
         loader = ModUpdateManager.infer_loader(srv)
         try:
             stats = self.controller.servers.get_server_stats_by_id(server_id)
@@ -140,17 +145,29 @@ class ApiServersServerContentHandler(BaseApiHandler):
         if not server_path or not os.path.isdir(server_path):
             return self.finish_json(
                 404,
-                {"status": "error", "error": "SERVER_NOT_FOUND", "error_data": "server path not found"},
+                {
+                    "status": "error",
+                    "error": "SERVER_NOT_FOUND",
+                    "error_data": "server path not found",
+                },
             )
 
         if content_type == "mod":
             try:
                 stats = self.controller.servers.get_server_stats_by_id(server_id)
-                running = stats.get("running") if isinstance(stats, dict) else getattr(stats, "running", False)
+                running = (
+                    stats.get("running")
+                    if isinstance(stats, dict)
+                    else getattr(stats, "running", False)
+                )
                 if running:
                     return self.finish_json(
                         409,
-                        {"status": "error", "error": "SERVER_RUNNING", "error_data": "Stop the server before installing mods."},
+                        {
+                            "status": "error",
+                            "error": "SERVER_RUNNING",
+                            "error_data": "Stop the server before installing mods.",
+                        },
                     )
             except Exception:
                 pass
@@ -168,19 +185,27 @@ class ApiServersServerContentHandler(BaseApiHandler):
             else:
                 versions = mgr.versions(
                     data["project_id"],
-                    loaders=[loader]
-                    if (loader and content_type in ("mod", "plugin"))
-                    else None,
+                    loaders=(
+                        [loader]
+                        if (loader and content_type in ("mod", "plugin"))
+                        else None
+                    ),
                     game_versions=[game_version] if game_version else None,
                 )
                 if not versions:
                     return self.finish_json(
-                        404, {"status": "error", "error": "NO_VERSION", "error_data": "No compatible version found."}
+                        404,
+                        {
+                            "status": "error",
+                            "error": "NO_VERSION",
+                            "error_data": "No compatible version found.",
+                        },
                     )
                 version = versions[0]
         except Exception as e:
             return self.finish_json(
-                502, {"status": "error", "error": "MODRINTH_ERROR", "error_data": str(e)}
+                502,
+                {"status": "error", "error": "MODRINTH_ERROR", "error_data": str(e)},
             )
 
         # --- mods/plugins: install the file + all required deps recursively ---
@@ -197,7 +222,12 @@ class ApiServersServerContentHandler(BaseApiHandler):
             )
             if not installed:
                 return self.finish_json(
-                    404, {"status": "error", "error": "NO_FILE", "error_data": "version has no downloadable file"}
+                    404,
+                    {
+                        "status": "error",
+                        "error": "NO_FILE",
+                        "error_data": "version has no downloadable file",
+                    },
                 )
             self._audit(auth_data, server_id, content_type)
             return self.finish_json(
@@ -223,7 +253,12 @@ class ApiServersServerContentHandler(BaseApiHandler):
         filename = pfile.get("filename")
         if not url:
             return self.finish_json(
-                404, {"status": "error", "error": "NO_FILE", "error_data": "version has no downloadable file"}
+                404,
+                {
+                    "status": "error",
+                    "error": "NO_FILE",
+                    "error_data": "version has no downloadable file",
+                },
             )
         try:
             if content_type == "datapack":
@@ -231,8 +266,12 @@ class ApiServersServerContentHandler(BaseApiHandler):
                 level = "world"
                 if os.path.isfile(props_path):
                     with open(props_path, "r", encoding="utf-8", errors="ignore") as f:
-                        level = _read_property(f.read(), "level-name", "world") or "world"
-                path = mgr.download_to(os.path.join(server_path, level, "datapacks"), url, sha512, filename)
+                        level = (
+                            _read_property(f.read(), "level-name", "world") or "world"
+                        )
+                path = mgr.download_to(
+                    os.path.join(server_path, level, "datapacks"), url, sha512, filename
+                )
             elif content_type == "resourcepack":
                 props_path = os.path.join(server_path, "server.properties")
                 text = ""
@@ -247,22 +286,44 @@ class ApiServersServerContentHandler(BaseApiHandler):
                 self._audit(auth_data, server_id, "resourcepack")
                 return self.finish_json(
                     200,
-                    {"status": "ok", "data": {"installed": {"content_type": "resourcepack", "resource_pack_url": url}}},
+                    {
+                        "status": "ok",
+                        "data": {
+                            "installed": {
+                                "content_type": "resourcepack",
+                                "resource_pack_url": url,
+                            }
+                        },
+                    },
                 )
             else:
                 return self.finish_json(
-                    400, {"status": "error", "error": "BAD_TYPE", "error_data": "unsupported content_type"}
+                    400,
+                    {
+                        "status": "error",
+                        "error": "BAD_TYPE",
+                        "error_data": "unsupported content_type",
+                    },
                 )
         except Exception as e:
             logger.warning("content install failed: %s", e)
             return self.finish_json(
-                500, {"status": "error", "error": "INSTALL_FAILED", "error_data": str(e)}
+                500,
+                {"status": "error", "error": "INSTALL_FAILED", "error_data": str(e)},
             )
 
         self._audit(auth_data, server_id, content_type)
         return self.finish_json(
             200,
-            {"status": "ok", "data": {"installed": {"content_type": content_type, "filename": os.path.basename(str(path))}}},
+            {
+                "status": "ok",
+                "data": {
+                    "installed": {
+                        "content_type": content_type,
+                        "filename": os.path.basename(str(path)),
+                    }
+                },
+            },
         )
 
     def _install_mod_recursive(
@@ -284,7 +345,7 @@ class ApiServersServerContentHandler(BaseApiHandler):
             except Exception as e:  # noqa: BLE001
                 logger.warning("mod/dependency download failed (%s): %s", fn, e)
 
-        for dep in (version.get("dependencies") or []):
+        for dep in version.get("dependencies") or []:
             if dep.get("dependency_type") != "required":
                 continue
             proj = dep.get("project_id")
@@ -314,10 +375,19 @@ class ApiServersServerContentHandler(BaseApiHandler):
                     if dep_proj:
                         visited.add(dep_proj)
                     self._install_mod_recursive(
-                        mgr, dep_version, mods_dir, loader, game_version, visited, installed, depth + 1
+                        mgr,
+                        dep_version,
+                        mods_dir,
+                        loader,
+                        game_version,
+                        visited,
+                        installed,
+                        depth + 1,
                     )
             except Exception as e:  # noqa: BLE001
-                logger.warning("dependency install failed for %s: %s", proj or ver_id, e)
+                logger.warning(
+                    "dependency install failed for %s: %s", proj or ver_id, e
+                )
 
     def _audit(self, auth_data, server_id, content_type):
         self.controller.management.add_to_audit_log(

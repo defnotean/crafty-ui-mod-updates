@@ -47,6 +47,7 @@ SUBPAGE_PERMS = {
 }
 
 SCHEDULE_AUTH_ERROR_URL = "/panel/error?error=Unauthorized access To Schedules"
+AUTO_RESTART_SCHEDULE_NAME = "Automatic Restart"
 
 HUMANIZED_INDEX_FILE = "humanized_index.json"
 
@@ -688,9 +689,25 @@ class PanelHandler(BaseHandler):
                 )
 
             if subpage == "schedules":
-                page_data["schedules"] = HelpersManagement.get_schedules_by_server(
-                    server_id
-                )
+                schedules = list(HelpersManagement.get_schedules_by_server(server_id))
+                page_data["schedules"] = schedules
+                page_data["auto_restart_schedule"] = None
+                for schedule in schedules:
+                    if (
+                        schedule.name == AUTO_RESTART_SCHEDULE_NAME
+                        and schedule.command == "restart_server"
+                    ):
+                        page_data["auto_restart_schedule"] = {
+                            "schedule_id": schedule.schedule_id,
+                            "enabled": schedule.enabled,
+                            "interval": schedule.interval,
+                            "interval_type": schedule.interval_type,
+                            "start_time": schedule.start_time or "04:00",
+                            "timezone": schedule.timezone or str(get_localzone()),
+                            "next_run": schedule.next_run,
+                        }
+                        break
+                page_data["local_timezone"] = str(get_localzone())
 
             if subpage == "update_center":
                 page_data["server_api"] = (
@@ -941,8 +958,8 @@ class PanelHandler(BaseHandler):
                     server_id
                 )
                 page_data["cached_players"] = server_instance.player_cache
-                page_data["whitelist_players"] = (
-                    self.controller.servers.get_whitelist(server_id)
+                page_data["whitelist_players"] = self.controller.servers.get_whitelist(
+                    server_id
                 )
                 page_data["whitelist_enabled"] = (
                     self.controller.servers.get_whitelist_enabled(server_id)
@@ -1310,6 +1327,7 @@ class PanelHandler(BaseHandler):
             page_data["schedule"]["command"] = ""
             page_data["schedule"]["one_time"] = False
             page_data["schedule"]["cron_string"] = ""
+            page_data["schedule"]["timezone"] = str(get_localzone())
             page_data["schedule"]["delay"] = 0
             page_data["schedule"]["time"] = ""
             page_data["schedule"]["interval"] = 1
@@ -1400,6 +1418,9 @@ class PanelHandler(BaseHandler):
             page_data["schedule"]["enabled"] = schedule.enabled
             page_data["schedule"]["one_time"] = schedule.one_time
             page_data["schedule"]["cron_string"] = schedule.cron_string
+            page_data["schedule"]["timezone"] = schedule.timezone or str(
+                get_localzone()
+            )
             page_data["schedule"]["time"] = schedule.start_time
             page_data["schedule"]["interval"] = schedule.interval
             page_data["schedule"]["interval_type"] = schedule.interval_type

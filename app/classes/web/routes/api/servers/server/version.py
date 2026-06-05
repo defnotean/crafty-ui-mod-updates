@@ -108,7 +108,7 @@ class ApiServersServerVersionHandler(BaseApiHandler):
             url = str(data.get("executable_update_url") or "")
             base = str(getattr(self.controller.big_bucket, "base_url", "")).rstrip("/")
             if url and base and url.startswith(base):
-                parts = url[len(base):].strip("/").split("/")
+                parts = url[len(base) :].strip("/").split("/")
                 jar_type = parts[0] if len(parts) > 0 else ""
                 url_version = parts[1] if len(parts) > 1 else ""
         except Exception:

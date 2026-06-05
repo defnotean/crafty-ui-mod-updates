@@ -10,7 +10,9 @@ logger = logging.getLogger(__name__)
 
 # Public DNS-over-HTTPS resolver — no credentials, no Cloudflare account needed.
 DOH_URL = "https://cloudflare-dns.com/dns-query"
-HOSTNAME_RE = re.compile(r"^(?=.{3,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$")
+HOSTNAME_RE = re.compile(
+    r"^(?=.{3,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$"
+)
 
 
 class ApiServersServerDomainHandler(BaseApiHandler):
@@ -33,11 +35,17 @@ class ApiServersServerDomainHandler(BaseApiHandler):
                 },
             )
 
-        hostname = (self.get_query_argument("hostname", "") or "").strip().lower().rstrip(".")
+        hostname = (
+            (self.get_query_argument("hostname", "") or "").strip().lower().rstrip(".")
+        )
         if not hostname or not HOSTNAME_RE.match(hostname):
             return self.finish_json(
                 400,
-                {"status": "error", "error": "BAD_HOSTNAME", "error_data": "Enter a valid domain, e.g. play.example.com"},
+                {
+                    "status": "error",
+                    "error": "BAD_HOSTNAME",
+                    "error_data": "Enter a valid domain, e.g. play.example.com",
+                },
             )
 
         # what the SRV should point at, from this server's current tunnel
@@ -59,7 +67,7 @@ class ApiServersServerDomainHandler(BaseApiHandler):
                 timeout=8,
             )
             resp.raise_for_status()
-            for answer in (resp.json().get("Answer") or []):
+            for answer in resp.json().get("Answer") or []:
                 if answer.get("type") == 33:  # SRV
                     parts = str(answer.get("data", "")).split()
                     if len(parts) >= 4:
@@ -77,7 +85,8 @@ class ApiServersServerDomainHandler(BaseApiHandler):
             )
 
         matches = any(
-            s["target"] == "bore.pub" and (expected_port is None or s["port"] == expected_port)
+            s["target"] == "bore.pub"
+            and (expected_port is None or s["port"] == expected_port)
             for s in srv
         )
         return self.finish_json(

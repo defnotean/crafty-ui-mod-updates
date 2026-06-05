@@ -60,11 +60,16 @@ class TunnelManager:
         tunnel.error = None
         tunnel.proc = subprocess.Popen(
             [
-                NODE, BORE_CLIENT,
-                "--local-port", str(tunnel.port),
-                "--local-host", "127.0.0.1",
-                "--to", BORE_HOST,
-                "--port", str(remote_port if remote_port else 0),
+                NODE,
+                BORE_CLIENT,
+                "--local-port",
+                str(tunnel.port),
+                "--local-host",
+                "127.0.0.1",
+                "--to",
+                BORE_HOST,
+                "--port",
+                str(remote_port if remote_port else 0),
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -90,7 +95,10 @@ class TunnelManager:
         if not port:
             return {"exposed": False, "error": "no server port"}
         if not os.path.isfile(BORE_CLIENT):
-            return {"exposed": False, "error": f"bore client not found at {BORE_CLIENT}"}
+            return {
+                "exposed": False,
+                "error": f"bore client not found at {BORE_CLIENT}",
+            }
         with self._lock:
             existing = self._tunnels.get(server_id)
             if self._alive(existing):

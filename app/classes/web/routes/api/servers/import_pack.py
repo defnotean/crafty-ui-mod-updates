@@ -42,7 +42,11 @@ class ApiServersImportPackHandler(BaseApiHandler):
         if not files:
             return self.finish_json(
                 400,
-                {"status": "error", "error": "NO_FILE", "error_data": "No modpack file was uploaded."},
+                {
+                    "status": "error",
+                    "error": "NO_FILE",
+                    "error_data": "No modpack file was uploaded.",
+                },
             )
         upload = files[0]
         body = upload.get("body") or b""
@@ -50,7 +54,11 @@ class ApiServersImportPackHandler(BaseApiHandler):
         if not body:
             return self.finish_json(
                 400,
-                {"status": "error", "error": "EMPTY_FILE", "error_data": "The uploaded file is empty."},
+                {
+                    "status": "error",
+                    "error": "EMPTY_FILE",
+                    "error_data": "The uploaded file is empty.",
+                },
             )
 
         def arg(name, default=None):
@@ -63,7 +71,11 @@ class ApiServersImportPackHandler(BaseApiHandler):
         if len(server_name) < 2:
             return self.finish_json(
                 400,
-                {"status": "error", "error": "BAD_NAME", "error_data": "Provide a server name (2+ characters)."},
+                {
+                    "status": "error",
+                    "error": "BAD_NAME",
+                    "error_data": "Provide a server name (2+ characters).",
+                },
             )
         try:
             port = int(arg("server_properties_port", arg("port", 25565)))
@@ -97,7 +109,9 @@ class ApiServersImportPackHandler(BaseApiHandler):
             if kind == "modrinth":
                 mc_version, jar_type, index = modpack_installer.parse_mrpack(pack_path)
             elif kind == "curseforge":
-                mc_version, jar_type, manifest = modpack_installer.parse_cf_manifest(pack_path)
+                mc_version, jar_type, manifest = modpack_installer.parse_cf_manifest(
+                    pack_path
+                )
             else:
                 shutil.rmtree(temp_dir, ignore_errors=True)
                 return self.finish_json(
@@ -111,18 +125,30 @@ class ApiServersImportPackHandler(BaseApiHandler):
         except Exception as e:  # noqa: BLE001
             shutil.rmtree(temp_dir, ignore_errors=True)
             return self.finish_json(
-                400, {"status": "error", "error": "UNSUPPORTED_MODPACK", "error_data": str(e)}
+                400,
+                {
+                    "status": "error",
+                    "error": "UNSUPPORTED_MODPACK",
+                    "error_data": str(e),
+                },
             )
 
         payload = modpack_installer.build_create_payload(
             server_name, jar_type, mc_version, mem_min, mem_max, port
         )
         try:
-            new_server_id = self.controller.create_api_server(payload, auth_data[4]["user_id"])
+            new_server_id = self.controller.create_api_server(
+                payload, auth_data[4]["user_id"]
+            )
         except Exception as e:  # noqa: BLE001
             shutil.rmtree(temp_dir, ignore_errors=True)
             return self.finish_json(
-                400, {"status": "error", "error": "CREATE_FAILED", "error_data": f"could not create base server: {e}"}
+                400,
+                {
+                    "status": "error",
+                    "error": "CREATE_FAILED",
+                    "error_data": f"could not create base server: {e}",
+                },
             )
 
         if kind == "modrinth":

@@ -27,7 +27,8 @@ class ApiCraftyModrinthSearchHandler(BaseApiHandler):
                 {
                     "status": "error",
                     "error": "BAD_TYPE",
-                    "error_data": "type must be one of: " + ", ".join(sorted(VALID_TYPES)),
+                    "error_data": "type must be one of: "
+                    + ", ".join(sorted(VALID_TYPES)),
                 },
             )
         try:

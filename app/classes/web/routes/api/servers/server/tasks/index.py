@@ -76,6 +76,12 @@ new_task_schema = {
             "error": "typeString",
             "fill": True,
         },
+        "timezone": {
+            "type": "string",
+            "default": "",
+            "error": "typeString",
+            "fill": True,
+        },
         "parent": {
             "type": ["integer", "null"],
             "error": "typeInteger",
@@ -163,6 +169,8 @@ class ApiServersServerTasksIndexHandler(BaseApiHandler):
         data["server_id"] = server_id
         if not data.get("start_time"):
             data["start_time"] = "00:00"
+        if not data.get("timezone"):
+            data["timezone"] = str(self.tasks_manager.tz)
 
         # validate cron string
         if "cron_string" in data:

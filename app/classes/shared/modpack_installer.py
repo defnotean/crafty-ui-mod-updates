@@ -94,7 +94,7 @@ def extract_overrides(zip_path, root, prefixes):
                 for name in archive.namelist():
                     if name.endswith("/") or not name.startswith(prefix + "/"):
                         continue
-                    rel = name[len(prefix) + 1:]
+                    rel = name[len(prefix) + 1 :]
                     if not rel:
                         continue
                     dest = safe_join(root, rel)
@@ -159,7 +159,9 @@ def parse_cf_manifest(zip_path):
         loaders[0] if loaders else None,
     )
     if not mc_version or not primary:
-        raise ValueError("CurseForge manifest is missing a Minecraft version or mod loader.")
+        raise ValueError(
+            "CurseForge manifest is missing a Minecraft version or mod loader."
+        )
     loader_id = str(primary.get("id", ""))  # e.g. "forge-47.2.0", "neoforge-20.4.10"
     loader_name = loader_id.split("-")[0].lower()
     jar_type = CURSEFORGE_LOADER_MAP.get(loader_name)
@@ -200,7 +202,9 @@ def install_modrinth(controller, server_id, temp_dir, mrpack_path, index):
             if not dest:
                 continue
             try:
-                mgr.download_to(os.path.dirname(dest), dl_url, sha512, os.path.basename(rel))
+                mgr.download_to(
+                    os.path.dirname(dest), dl_url, sha512, os.path.basename(rel)
+                )
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Modpack file %s failed: %s", rel, exc)
         extract_overrides(mrpack_path, root, ["overrides", "server-overrides"])
@@ -235,7 +239,10 @@ def install_curseforge(controller, server_id, temp_dir, zip_path, manifest):
                 failed += 1
                 logger.warning("CurseForge file %s/%s failed: %s", pid, fid, exc)
         logger.info(
-            "CurseForge modpack %s install: %s mods ok, %s failed", server_id, ok, failed
+            "CurseForge modpack %s install: %s mods ok, %s failed",
+            server_id,
+            ok,
+            failed,
         )
         extract_overrides(zip_path, root, [manifest.get("overrides", "overrides")])
         write_eula(root)

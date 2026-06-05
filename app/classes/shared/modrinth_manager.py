@@ -87,9 +87,7 @@ class ModrinthManager:
         text = (url or "").strip()
         slug = None
         version_ref = None
-        page = re.search(
-            r"modrinth\.com/[a-z]+/([^/?#]+)(?:/version/([^/?#]+))?", text
-        )
+        page = re.search(r"modrinth\.com/[a-z]+/([^/?#]+)(?:/version/([^/?#]+))?", text)
         if page:
             slug = page.group(1)
             version_ref = page.group(2)

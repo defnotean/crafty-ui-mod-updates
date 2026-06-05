@@ -62,8 +62,9 @@ class ApiServersServerMapHandler(BaseApiHandler):
             ),
             auth_data[5],
         )
-        if EnumPermissionsServer.LOGS not in self.controller.server_perms.get_permissions(
-            mask
+        if (
+            EnumPermissionsServer.LOGS
+            not in self.controller.server_perms.get_permissions(mask)
         ):
             self.set_status(403)
             self.finish("Forbidden")

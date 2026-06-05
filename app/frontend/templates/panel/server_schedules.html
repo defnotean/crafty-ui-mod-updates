@@ -57,6 +57,37 @@
                       }}</a></div>
                 </div>
                 <div class="card-body">
+                  <div class="auto-restart-panel mb-4">
+                    <div class="auto-restart-copy">
+                      <h5 class="mb-1">Automatic Restarts</h5>
+                      <p class="text-muted mb-0">
+                        Run a daily restart in the timezone selected by this browser.
+                        {% if data['auto_restart_schedule'] %}
+                        Next run: {{ data['auto_restart_schedule']['next_run'] or 'Not scheduled yet' }}
+                        {% else %}
+                        No automatic restart schedule is configured.
+                        {% end %}
+                      </p>
+                    </div>
+                    <div class="auto-restart-controls">
+                      <div class="custom-control custom-switch">
+                        <input type="checkbox" class="custom-control-input" id="auto_restart_enabled"
+                          {% if data['auto_restart_schedule'] and data['auto_restart_schedule']['enabled'] %}checked{% end %}>
+                        <label class="custom-control-label" for="auto_restart_enabled">Enabled</label>
+                      </div>
+                      <label class="sr-only" for="auto_restart_time">Restart time</label>
+                      <input type="time" class="form-control auto-restart-time" id="auto_restart_time"
+                        value="{{ data['auto_restart_schedule']['start_time'] if data['auto_restart_schedule'] else '04:00' }}">
+                      <input type="hidden" id="auto_restart_timezone"
+                        value="{{ data['auto_restart_schedule']['timezone'] if data['auto_restart_schedule'] else data['local_timezone'] }}">
+                      <button type="button" class="btn btn-info" id="save_auto_restart">
+                        <i class="ph-fill ph-floppy-disk"></i> Save
+                      </button>
+                      <span class="text-muted auto-restart-zone" id="auto_restart_zone">
+                        {{ data['auto_restart_schedule']['timezone'] if data['auto_restart_schedule'] else data['local_timezone'] }}
+                      </span>
+                    </div>
+                  </div>
                   {% if len(data['schedules']) == 0 %}
                   <div class="text-align-center text-secondary">
                     <h7>{{ translate('serverSchedules', 'no-schedule', data['lang']) }} <strong>{{
@@ -288,6 +319,50 @@
       vertical-align: middle;
       cursor: pointer;
     }
+
+    .auto-restart-panel {
+      align-items: center;
+      background: rgba(0, 123, 255, 0.08);
+      border: 1px solid rgba(0, 123, 255, 0.18);
+      border-radius: 8px;
+      display: flex;
+      gap: 1rem;
+      justify-content: space-between;
+      padding: 1rem;
+    }
+
+    .auto-restart-copy {
+      min-width: 220px;
+    }
+
+    .auto-restart-controls {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: flex-end;
+    }
+
+    .auto-restart-time {
+      max-width: 140px;
+    }
+
+    .auto-restart-zone {
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 767px) {
+      .auto-restart-panel {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .auto-restart-controls {
+        justify-content: flex-start;
+        width: 100%;
+      }
+    }
   </style>
 
 
@@ -349,6 +424,50 @@
   })
 
   const serverId = new URLSearchParams(document.location.search).get('id')
+  const autoRestartScheduleId = "{{ data['auto_restart_schedule']['schedule_id'] if data['auto_restart_schedule'] else '' }}";
+  const autoRestartTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "{{ data['local_timezone'] }}";
+  document.getElementById('auto_restart_timezone').value = autoRestartTimezone;
+  document.getElementById('auto_restart_zone').textContent = autoRestartTimezone;
+
+  $("#save_auto_restart").on("click", async function () {
+    const token = getCookie("_xsrf");
+    const payload = {
+      name: "Automatic Restart",
+      action: "restart",
+      interval: 1,
+      interval_type: "days",
+      start_time: $("#auto_restart_time").val() || "04:00",
+      command: "restart_server",
+      enabled: $("#auto_restart_enabled").prop("checked"),
+      one_time: false,
+      cron_string: "",
+      timezone: $("#auto_restart_timezone").val() || "{{ data['local_timezone'] }}",
+      parent: null,
+      delay: 0
+    };
+    const endpoint = autoRestartScheduleId
+      ? `/api/v2/servers/${serverId}/tasks/${autoRestartScheduleId}`
+      : `/api/v2/servers/${serverId}/tasks/`;
+    const method = autoRestartScheduleId ? "PATCH" : "POST";
+
+    const res = await fetch(endpoint, {
+      method,
+      body: JSON.stringify(payload),
+      headers: {
+        "X-XSRFToken": token,
+        "Content-Type": "application/json",
+      },
+    });
+    const responseData = await res.json();
+    if (responseData.status === "ok") {
+      globalThis.location.reload();
+    } else {
+      bootbox.alert({
+        title: responseData.error,
+        message: responseData.error_data
+      });
+    }
+  });
 
   $(document).ready(function () {
     console.log('ready for JS!');

@@ -43,6 +43,7 @@ SUBPAGE_PERMS = {
     "update_center": EnumPermissionsServer.CONFIG,
     "mods": EnumPermissionsServer.FILES,
     "world_tools": EnumPermissionsServer.BACKUP,
+    "live_map": EnumPermissionsServer.LOGS,
 }
 
 SCHEDULE_AUTH_ERROR_URL = "/panel/error?error=Unauthorized access To Schedules"

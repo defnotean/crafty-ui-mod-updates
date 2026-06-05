@@ -74,7 +74,7 @@ function createTreeItem(dpath, filename, isDir) {
 
         const iconSpan = document.createElement('span');
         iconSpan.style.marginRight = '6px';
-        iconSpan.appendChild(createIcon('far fa-file'));
+        iconSpan.appendChild(createIcon('ph ph-file'));
 
         li.appendChild(input);
         li.appendChild(iconSpan);

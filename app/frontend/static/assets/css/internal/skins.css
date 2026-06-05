@@ -1,0 +1,78 @@
+/* ============================================================================
+ *  Aesthetic skins — re-tint the whole panel on top of the Minecraft redesign.
+ *  Activated by  html.minecraft[data-skin="<name>"]  (set by skinSwitcher.js).
+ *  Only color tokens change; the structural redesign (redesign.css) is shared,
+ *  so every skin keeps the same blocky Minecraft layout but a different mood.
+ *  Default (no data-skin) = the original grass-green look.
+ * ========================================================================== */
+
+/* Nether — crimson + ember */
+html.minecraft[data-skin="nether"] {
+  --primary: #e0533a; --mc-grass: #e0533a; --info: #d98b4a;
+  --deep-bg: #160d0c; --base-bg: #211210; --card-banner-bg: #2a1613;
+  --select-bg: #241412; --ram-bg: #241412; --dropdown-bg: #1c100e; --tooltip-bg: #100807;
+  --outline: #4a2620; --mc-edge: #4a2620; --base-text: #f0dcd6; --secondary: #3a1f1a;
+}
+/* The End — violet + void */
+html.minecraft[data-skin="end"] {
+  --primary: #a986e0; --mc-grass: #a986e0; --info: #8f7fd6;
+  --deep-bg: #100d18; --base-bg: #181426; --card-banner-bg: #1e1830;
+  --select-bg: #1b1530; --ram-bg: #1b1530; --dropdown-bg: #15101f; --tooltip-bg: #0c0a14;
+  --outline: #36305a; --mc-edge: #36305a; --base-text: #e6dff5; --secondary: #261f40;
+}
+/* Ocean — deep-sea blue */
+html.minecraft[data-skin="ocean"] {
+  --primary: #2fa8d4; --mc-grass: #2fa8d4; --info: #57c7d4;
+  --deep-bg: #0a1016; --base-bg: #0f1a24; --card-banner-bg: #12222e;
+  --select-bg: #122230; --ram-bg: #122230; --dropdown-bg: #0d1925; --tooltip-bg: #060d12;
+  --outline: #1f3a4a; --mc-edge: #1f3a4a; --base-text: #d6e8f2; --secondary: #16303f;
+}
+/* Cherry — sakura pink */
+html.minecraft[data-skin="cherry"] {
+  --primary: #e8709e; --mc-grass: #e8709e; --info: #d68bb0;
+  --deep-bg: #160f12; --base-bg: #20151a; --card-banner-bg: #2a1b22;
+  --select-bg: #261820; --ram-bg: #261820; --dropdown-bg: #1d1218; --tooltip-bg: #100a0d;
+  --outline: #4a2b38; --mc-edge: #4a2b38; --base-text: #f5deea; --secondary: #3a2530;
+}
+/* Gold — desert amber */
+html.minecraft[data-skin="gold"] {
+  --primary: #e0a93a; --mc-grass: #e0a93a; --info: #e2c044;
+  --deep-bg: #14110a; --base-bg: #1e1810; --card-banner-bg: #271f12;
+  --select-bg: #231c11; --ram-bg: #231c11; --dropdown-bg: #1a150c; --tooltip-bg: #0e0b06;
+  --outline: #463a1f; --mc-edge: #463a1f; --base-text: #f2e8d2; --secondary: #38301a;
+}
+/* Midnight — slate + indigo, minimal */
+html.minecraft[data-skin="midnight"] {
+  --primary: #5b8def; --mc-grass: #5b8def; --info: #6f9bf0;
+  --deep-bg: #0b0d12; --base-bg: #11141c; --card-banner-bg: #161a24;
+  --select-bg: #151823; --ram-bg: #151823; --dropdown-bg: #10131b; --tooltip-bg: #07080c;
+  --outline: #2a3144; --mc-edge: #2a3144; --base-text: #dae0ec; --secondary: #1c2030;
+}
+
+/* ---- floating skin switcher --------------------------------------------- */
+#skin-switcher { position: fixed; right: 18px; bottom: 18px; z-index: 1080; font-family: var(--font-family-sans-serif); }
+#skin-switcher .ss-toggle {
+  width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--mc-edge, #33402b);
+  background: var(--card-banner-bg, #1a2016); color: var(--mc-grass, #4caf50);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  font-size: 1.4rem; box-shadow: 0 4px 16px rgba(0, 0, 0, .45);
+  transition: transform .15s ease, color .15s ease;
+}
+#skin-switcher .ss-toggle:hover { transform: translateY(-2px) rotate(-10deg); }
+#skin-switcher .ss-panel {
+  position: absolute; right: 0; bottom: 58px; width: 236px; padding: 12px 13px;
+  background: var(--base-bg, #1a2016); border: 1px solid var(--mc-edge, #33402b);
+  border-radius: 12px; box-shadow: 0 12px 34px rgba(0, 0, 0, .55); display: none;
+}
+#skin-switcher.open .ss-panel { display: block; animation: ss-pop .15s ease; }
+@keyframes ss-pop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+#skin-switcher .ss-title { font-size: .7rem; letter-spacing: .09em; text-transform: uppercase; color: var(--gray-light, #9fb08c); margin: 0 2px 9px; }
+#skin-switcher .ss-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+#skin-switcher .ss-swatch {
+  aspect-ratio: 1 / 1; border-radius: 9px; border: 2px solid transparent; cursor: pointer;
+  position: relative; overflow: hidden; transition: transform .12s ease, border-color .12s ease;
+}
+#skin-switcher .ss-swatch:hover { transform: scale(1.07); }
+#skin-switcher .ss-swatch.active { border-color: #ffffff; }
+#skin-switcher .ss-swatch .ss-accent { position: absolute; right: 4px; bottom: 4px; width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .55); }
+#skin-switcher .ss-name { text-align: center; margin-top: 9px; font-size: .82rem; font-weight: 600; color: var(--base-text, #eaf2e6); min-height: 1.15em; }

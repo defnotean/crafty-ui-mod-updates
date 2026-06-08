@@ -1,5 +1,6 @@
 from peewee import SqliteDatabase
 
+from app.classes.models.base_model import database_proxy
 from app.classes.models.roles import HelperRoles, Roles
 
 
@@ -8,9 +9,11 @@ def test_update_role_sets_last_update_in_sqlite_without_format_change() -> None:
     functions correctly without needing a database migration."""
     # Spin up temporary, in-memory, database.
     db = SqliteDatabase(":memory:")
+    original_database = database_proxy.obj
+    database_proxy.initialize(db)
 
     # Connect to db
-    with db.bind_ctx([Roles]):
+    try:
         db.connect()
         db.create_tables([Roles])
 
@@ -43,4 +46,6 @@ def test_update_role_sets_last_update_in_sqlite_without_format_change() -> None:
         assert role.last_update[5] == "/"
         assert role.last_update[10:12] == ", "
 
+    finally:
         db.close()
+        database_proxy.initialize(original_database)

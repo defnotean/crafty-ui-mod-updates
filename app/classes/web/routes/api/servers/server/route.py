@@ -34,7 +34,10 @@ class ApiServersServerRouteHandler(BaseApiHandler):
             ),
             auth_data[5],
         )
-        if EnumPermissionsServer.CONFIG not in self.controller.server_perms.get_permissions(mask):
+        if (
+            EnumPermissionsServer.CONFIG
+            not in self.controller.server_perms.get_permissions(mask)
+        ):
             self.finish_json(
                 400,
                 {
@@ -79,7 +82,9 @@ class ApiServersServerRouteHandler(BaseApiHandler):
     def get(self, server_id):
         if not self._authorize(server_id):
             return
-        return self.finish_json(200, {"status": "ok", "data": tunnel_manager.status(server_id)})
+        return self.finish_json(
+            200, {"status": "ok", "data": tunnel_manager.status(server_id)}
+        )
 
     def post(self, server_id):
         auth_data = self._authorize(server_id)
@@ -89,7 +94,11 @@ class ApiServersServerRouteHandler(BaseApiHandler):
         if not port:
             return self.finish_json(
                 400,
-                {"status": "error", "error": "NO_PORT", "error_data": "Could not determine the server's port."},
+                {
+                    "status": "error",
+                    "error": "NO_PORT",
+                    "error_data": "Could not determine the server's port.",
+                },
             )
         result = tunnel_manager.start(server_id, port)
         self.controller.management.add_to_audit_log(

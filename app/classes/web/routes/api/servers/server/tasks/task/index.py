@@ -78,6 +78,12 @@ task_patch_schema = {
             "error": "typeString",
             "fill": True,
         },
+        "timezone": {
+            "type": "string",
+            "default": "",
+            "error": "typeString",
+            "fill": True,
+        },
         "parent": {
             "type": ["integer", "null"],
             "error": "typeInteger",

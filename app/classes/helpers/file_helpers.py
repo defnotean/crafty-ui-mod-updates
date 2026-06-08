@@ -4,7 +4,6 @@ import logging
 import mimetypes
 import os
 import pathlib
-import re
 import shutil
 import ssl
 import time
@@ -541,6 +540,23 @@ class FileHelpers:
                 logger.debug("%s is not relative to %s", file, base_include_path)
         return str(file)
 
+    @staticmethod
+    def get_safe_archive_internal_name(file) -> str | None:
+        """Return a safe relative archive member path for extraction.
+
+        Zip archives can contain absolute paths, Windows drive roots, and parent
+        directory segments. Normalize those entries into a relative path before
+        passing them to zipfile.extract.
+        """
+        parts = []
+        for part in pathlib.PurePosixPath(str(file).replace("\\", "/")).parts:
+            if part in ("", ".", "..", "/") or ":" in part:
+                continue
+            parts.append(part)
+        if not parts:
+            return None
+        return str(pathlib.PurePosixPath(*parts))
+
     def unzip_file(
         self,
         zip_path,
@@ -583,23 +599,30 @@ class FileHelpers:
                     # Skip directory entries
                     if info.is_dir():
                         continue
-                    archive_name = self.get_archive_internal_name(
-                        file, base_include_path
-                    )
-                    safe_archive_name = self.get_safe_archive_name(archive_name)
-                    if not safe_archive_name:
-                        continue
-                    target = Path(destination_path, safe_archive_name).resolve()
-                    try:
-                        Helpers.validate_traversal(destination_path, target)
-                    except ValueError:
-                        self.send_percentage(server_users, 100, proc_id, True)
-                        return logger.error("Traversal detected. Dumping out.")
                     # if the file is one of our ignored names we'll skip it
                     if self.should_extract(
                         file, base_include_path, ignored_names, server_update
                     ):
-                        info.filename = safe_archive_name
+                        internal_name = self.get_archive_internal_name(
+                            file, base_include_path
+                        )
+                        safe_name = self.get_safe_archive_internal_name(internal_name)
+                        if not safe_name:
+                            logger.warning(
+                                "Skipping unsafe empty archive path: %s", file
+                            )
+                            continue
+
+                        target = Path(destination_path, safe_name).resolve()
+                        try:
+                            Helpers.validate_traversal(destination_path, target)
+                        except ValueError:
+                            logger.error(
+                                "Traversal detected for archive path: %s", file
+                            )
+                            continue
+
+                        info.filename = safe_name
                         try:
                             zip_ref.extract(info, destination_path)
                         except FileNotFoundError:
@@ -616,14 +639,7 @@ class FileHelpers:
     @staticmethod
     def get_safe_archive_name(file: str) -> str:
         """Remove absolute and parent path segments from a zip member name."""
-        parts = []
-        for part in pathlib.PurePosixPath(file.replace("\\", "/")).parts:
-            if part in ("", ".", "..", "/"):
-                continue
-            if re.match(r"^[A-Za-z]:$", part):
-                continue
-            parts.append(part)
-        return str(pathlib.PurePosixPath(*parts)) if parts else ""
+        return FileHelpers.get_safe_archive_internal_name(file) or ""
 
     @staticmethod
     def get_absolute_path(server_path, path) -> str:

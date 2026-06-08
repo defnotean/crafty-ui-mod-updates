@@ -90,16 +90,22 @@ class ApiServersFromModrinthHandler(BaseApiHandler):
                 sha512 = (pfile.get("hashes") or {}).get("sha512")
         except ValueError as e:
             return self.finish_json(
-                400, {"status": "error", "error": "RESOLVE_FAILED", "error_data": str(e)}
+                400,
+                {"status": "error", "error": "RESOLVE_FAILED", "error_data": str(e)},
             )
         except Exception as e:  # noqa: BLE001
             return self.finish_json(
-                502, {"status": "error", "error": "MODRINTH_ERROR", "error_data": str(e)}
+                502,
+                {"status": "error", "error": "MODRINTH_ERROR", "error_data": str(e)},
             )
         if not dl_url:
             return self.finish_json(
                 404,
-                {"status": "error", "error": "NO_FILE", "error_data": "Modpack version has no downloadable file."},
+                {
+                    "status": "error",
+                    "error": "NO_FILE",
+                    "error_data": "Modpack version has no downloadable file.",
+                },
             )
 
         # Download + read the pack index --------------------------------------
@@ -109,28 +115,45 @@ class ApiServersFromModrinthHandler(BaseApiHandler):
         except Exception as e:  # noqa: BLE001
             shutil.rmtree(temp_dir, ignore_errors=True)
             return self.finish_json(
-                502, {"status": "error", "error": "DOWNLOAD_FAILED", "error_data": str(e)}
+                502,
+                {"status": "error", "error": "DOWNLOAD_FAILED", "error_data": str(e)},
             )
         try:
             mc_version, jar_type, index = modpack_installer.parse_mrpack(mrpack_path)
         except Exception as e:  # noqa: BLE001
             shutil.rmtree(temp_dir, ignore_errors=True)
             return self.finish_json(
-                400, {"status": "error", "error": "UNSUPPORTED_MODPACK", "error_data": str(e)}
+                400,
+                {
+                    "status": "error",
+                    "error": "UNSUPPORTED_MODPACK",
+                    "error_data": str(e),
+                },
             )
 
         # Create the base server then install in the background ---------------
         port = int(data.get("server_properties_port", 25565))
         payload = modpack_installer.build_create_payload(
-            data["name"], jar_type, mc_version,
-            data.get("mem_min", 2), data.get("mem_max", 4), port,
+            data["name"],
+            jar_type,
+            mc_version,
+            data.get("mem_min", 2),
+            data.get("mem_max", 4),
+            port,
         )
         try:
-            new_server_id = self.controller.create_api_server(payload, auth_data[4]["user_id"])
+            new_server_id = self.controller.create_api_server(
+                payload, auth_data[4]["user_id"]
+            )
         except Exception as e:  # noqa: BLE001
             shutil.rmtree(temp_dir, ignore_errors=True)
             return self.finish_json(
-                400, {"status": "error", "error": "CREATE_FAILED", "error_data": f"could not create base server: {e}"}
+                400,
+                {
+                    "status": "error",
+                    "error": "CREATE_FAILED",
+                    "error_data": f"could not create base server: {e}",
+                },
             )
 
         threading.Thread(

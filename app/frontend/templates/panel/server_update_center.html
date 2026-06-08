@@ -167,6 +167,18 @@
                                                 translate('serverConfig',
                                                 'update', data['lang']) }}</button>
                                         </div>
+                                        {% if data['server_stats']['server_type'] == "minecraft-java" %}
+                                        <br>
+                                        <div>
+                                            <button onclick="send_command(serverId, 'update_mods');"
+                                                id="update_mods" class="btn btn-outline-info">
+                                                <i class="ph-fill ph-puzzle-piece"></i> Update Mods
+                                            </button>
+                                        </div>
+                                        <small class="text-muted">
+                                            Updates detected Modrinth mods/plugins after a backup.
+                                        </small>
+                                        {% end %}
                                         <br>
                                         <div class="download-progress progress d-none" role="progressbar"
                                             id="download-progress">
@@ -224,6 +236,7 @@
         }
 
         $("#update_watcher").on("change", async function () {
+            const token = getCookie("_xsrf");
             let payload = JSON.stringify({ "update_watcher": $("#update_watcher").prop('checked') })
             let res = await fetch(`/api/v2/servers/${serverId}/update/config/`, {
                 method: 'PATCH',

@@ -31,8 +31,9 @@ class ApiServersServerPlayerlistsHandler(BaseApiHandler):
             ),
             auth_data[5],
         )
-        if EnumPermissionsServer.PLAYERS not in self.controller.server_perms.get_permissions(
-            mask
+        if (
+            EnumPermissionsServer.PLAYERS
+            not in self.controller.server_perms.get_permissions(mask)
         ):
             return self.finish_json(
                 400,

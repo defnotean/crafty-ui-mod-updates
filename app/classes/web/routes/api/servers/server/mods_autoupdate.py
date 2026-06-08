@@ -34,8 +34,9 @@ class ApiServersServerModsAutoupdateHandler(BaseApiHandler):
             ),
             auth_data[5],
         )
-        if EnumPermissionsServer.FILES not in self.controller.server_perms.get_permissions(
-            mask
+        if (
+            EnumPermissionsServer.FILES
+            not in self.controller.server_perms.get_permissions(mask)
         ):
             self.finish_json(
                 400,
@@ -60,7 +61,12 @@ class ApiServersServerModsAutoupdateHandler(BaseApiHandler):
         path = self._path(server_id)
         if not path:
             return self.finish_json(
-                400, {"status": "error", "error": "NO_PATH", "error_data": "server path unknown"}
+                400,
+                {
+                    "status": "error",
+                    "error": "NO_PATH",
+                    "error_data": "server path unknown",
+                },
             )
         return self.finish_json(
             200, {"status": "ok", "data": mod_autoupdate.get_config(path)}
@@ -73,13 +79,19 @@ class ApiServersServerModsAutoupdateHandler(BaseApiHandler):
         path = self._path(server_id)
         if not path:
             return self.finish_json(
-                400, {"status": "error", "error": "NO_PATH", "error_data": "server path unknown"}
+                400,
+                {
+                    "status": "error",
+                    "error": "NO_PATH",
+                    "error_data": "server path unknown",
+                },
             )
         try:
             data = json.loads(self.request.body or b"{}")
         except json.JSONDecodeError:
             return self.finish_json(
-                400, {"status": "error", "error": "INVALID_JSON", "error_data": "bad JSON"}
+                400,
+                {"status": "error", "error": "INVALID_JSON", "error_data": "bad JSON"},
             )
         enabled = bool(data.get("enabled"))
         update_minecraft = bool(data.get("update_minecraft"))

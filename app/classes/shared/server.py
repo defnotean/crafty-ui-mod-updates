@@ -36,6 +36,7 @@ from app.classes.models.server_permissions import PermissionsServers
 from app.classes.shared.console import Console
 from app.classes.helpers.helpers import Helpers
 from app.classes.helpers.file_helpers import FileHelpers
+from app.classes.shared.mod_updater import ModrinthModUpdater
 from app.classes.shared.null_writer import NullWriter
 from app.classes.shared.websocket_manager import WebSocketManager
 from app.classes.steamcmd.steamcmd import SteamCMD
@@ -602,9 +603,7 @@ class ServerInstance:
                             f"Auto-Java: {self.name} needs Java {java_major}; "
                             f"using {java_bin}"
                         )
-                        Console.info(
-                            f"Auto-Java: {self.name} -> Java {java_major}"
-                        )
+                        Console.info(f"Auto-Java: {self.name} -> Java {java_major}")
                         self.server_command[0] = java_bin
         except Exception as auto_java_exc:  # noqa: BLE001
             logger.warning(
@@ -694,7 +693,10 @@ class ServerInstance:
                     continue
                 cwd_norm = os.path.normcase(os.path.abspath(cwd))
                 # match the exact server dir, or its name (servers are dir'd by id)
-                if cwd_norm != target and os.path.basename(cwd.rstrip("/\\")).lower() != sid:
+                if (
+                    cwd_norm != target
+                    and os.path.basename(cwd.rstrip("/\\")).lower() != sid
+                ):
                     continue
                 logger.warning(
                     "Auto-recover: clearing orphaned process PID %s for server %s "
@@ -1730,6 +1732,123 @@ class ServerInstance:
         )
         update_thread.start()
 
+    @callback
+    def update_mods(self):
+        self.stats_helper.set_update(True)
+        update_thread = threading.Thread(
+            target=self.threaded_mod_update, daemon=True, name=f"mod_update_{self.name}"
+        )
+        update_thread.start()
+
+    def _get_mod_update_context(self) -> tuple[list[str], list[str]]:
+        server_stats = self.stats_helper.get_server_stats()
+        loaders = ModrinthModUpdater.detect_loaders(
+            self.settings.get("executable"),
+            self.settings.get("execution_command"),
+            server_stats.get("version"),
+        )
+        game_versions = ModrinthModUpdater.detect_game_versions(
+            server_stats.get("version"),
+            self.settings.get("executable"),
+            self.settings.get("execution_command"),
+        )
+        return loaders, game_versions
+
+    def _notify_server_users(self, server_users, message: str) -> None:
+        for user in server_users:
+            WebSocketManager().broadcast_user(user, "notification", message)
+
+    def threaded_mod_update(self):
+        server_users = PermissionsServers.get_server_user_list(self.server_id)
+        updater = ModrinthModUpdater()
+        server_path = Helpers.get_os_understandable_path(self.settings["path"])
+        candidates = updater.discover_candidates(server_path)
+
+        if not candidates:
+            self._notify_server_users(
+                server_users,
+                "No mod or plugin .jar files were found for " + self.name + ".",
+            )
+            self.stats_helper.set_update(False)
+            return
+
+        loaders, game_versions = self._get_mod_update_context()
+        if not loaders or not game_versions:
+            self._notify_server_users(
+                server_users,
+                "Unable to detect loader or Minecraft version for "
+                + self.name
+                + ". Mod updates were not started.",
+            )
+            self.stats_helper.set_update(False)
+            return
+
+        if len(self.management_helper.get_backups_by_server(self.server_id, True)) <= 0:
+            self._notify_server_users(
+                server_users,
+                "Backup config does not exist for "
+                + self.name
+                + ". canceling mod update.",
+            )
+            logger.error(
+                "Backup config does not exist for %s. Mod update failed.", self.name
+            )
+            self.stats_helper.set_update(False)
+            return
+
+        backup_config = HelpersManagement.get_default_server_backup(self.server_id)
+        self.server_backup_threader(backup_config["backup_id"], True)
+
+        was_started = False
+        if self.check_running():
+            was_started = True
+            logger.info("Stopping %s before mod update.", self.name)
+            self.stop_threaded_server()
+
+        try:
+            while self.check_backup_by_id(backup_config["backup_id"]):
+                time.sleep(2)
+
+            backup_status = json.loads(
+                HelpersManagement.get_backup_config(backup_config["backup_id"])[
+                    "status"
+                ]
+            )["status"]
+            if backup_status == "Failed":
+                self._notify_server_users(
+                    server_users,
+                    "Backup failed for " + self.name + ". canceling mod update.",
+                )
+                return
+
+            result = updater.update(server_path, loaders, game_versions)
+        except Exception as why:
+            logger.error("Mod update failed for %s: %s", self.name, why, exc_info=True)
+            self._notify_server_users(
+                server_users,
+                "Mod update failed for " + self.name + ". Check log file for details.",
+            )
+            return
+        finally:
+            self.stats_helper.set_update(False)
+            if was_started:
+                self.run_threaded_server(HelperUsers.get_user_id_by_name("system"))
+
+        logger.info("Mod update finished for %s. %s", self.name, result.summary)
+        for message in result.messages:
+            logger.info("Mod update detail for %s: %s", self.name, message)
+        self.management_helper.add_to_audit_log_raw(
+            "Alert",
+            "-1",
+            self.server_id,
+            "Mod update finished for " + self.name + ". " + result.summary,
+            self.settings["server_ip"],
+        )
+        self._notify_server_users(
+            server_users,
+            "Mod update finished for " + self.name + ". " + result.summary,
+        )
+
     def write_player_cache(self):
         write_json = {}
         for item in self.player_cache:
@@ -2006,7 +2125,10 @@ class ServerInstance:
 
         # 1) Back up first so the reset is always reversible.
         try:
-            if len(self.management_helper.get_backups_by_server(self.server_id, True)) > 0:
+            if (
+                len(self.management_helper.get_backups_by_server(self.server_id, True))
+                > 0
+            ):
                 backup_config = HelpersManagement.get_default_server_backup(
                     self.server_id
                 )

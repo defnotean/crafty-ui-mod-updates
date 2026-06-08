@@ -60,7 +60,9 @@ def get_config(server_path):
     return cfg
 
 
-def set_config(server_path, enabled, frequency, last_check=None, update_minecraft=False):
+def set_config(
+    server_path, enabled, frequency, last_check=None, update_minecraft=False
+):
     freq = str(frequency or DEFAULT_FREQ).lower()
     if freq not in FREQUENCIES:
         freq = DEFAULT_FREQ
@@ -195,7 +197,9 @@ def _current_version(controller, server_id):
     version = ""
     try:
         stats = controller.servers.get_server_stats_by_id(server_id)
-        version = str((stats or {}).get("version") or "") if isinstance(stats, dict) else ""
+        version = (
+            str((stats or {}).get("version") or "") if isinstance(stats, dict) else ""
+        )
     except Exception:  # noqa: BLE001
         version = ""
     match = re.search(r"\b\d+\.\d+(?:\.\d+)?\b", version)
@@ -208,7 +212,7 @@ def _current_version(controller, server_id):
         url = str(data.get("executable_update_url") or "")
         base = str(getattr(controller.big_bucket, "base_url", "")).rstrip("/")
         if url and base and url.startswith(base):
-            parts = url[len(base):].strip("/").split("/")
+            parts = url[len(base) :].strip("/").split("/")
             jar_type = parts[0] if parts else ""
             url_version = parts[1] if len(parts) > 1 else ""
     except Exception:  # noqa: BLE001

@@ -40,6 +40,8 @@ def test_unzip_file_strips_parent_segments(tmp_path, monkeypatch) -> None:
 
     with zipfile.ZipFile(archive_path, "w") as zip_ref:
         zip_ref.writestr("../outside.txt", "nope")
+        zip_ref.writestr("/absolute.txt", "abs")
+        zip_ref.writestr("C:/drive.txt", "drive")
         zip_ref.writestr("dir/ok.txt", "ok")
 
     file_helper = FileHelpers(None)
@@ -51,6 +53,8 @@ def test_unzip_file_strips_parent_segments(tmp_path, monkeypatch) -> None:
         user_id=["test"],
     )
     assert (destination / "outside.txt").exists()
+    assert (destination / "absolute.txt").exists()
+    assert (destination / "drive.txt").exists()
     assert (destination / "dir" / "ok.txt").exists()
     assert not (tmp_path / "outside.txt").exists()
 

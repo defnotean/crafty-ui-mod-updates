@@ -92,6 +92,7 @@ class Schedules(BaseModel):
     name = CharField()
     one_time = BooleanField(default=False)
     cron_string = CharField(default="")
+    timezone = CharField(default="")
     parent = IntegerField(null=True)
     delay = IntegerField(default=0)
     next_run = CharField(default="")
@@ -280,6 +281,7 @@ class HelpersManagement:
         enabled=True,
         one_time=False,
         cron_string="* * * * *",
+        timezone="",
         parent=None,
         delay=0,
         action_id=None,
@@ -297,6 +299,7 @@ class HelpersManagement:
                 Schedules.name: name,
                 Schedules.one_time: one_time,
                 Schedules.cron_string: cron_string,
+                Schedules.timezone: timezone,
                 Schedules.parent: parent,
                 Schedules.delay: delay,
                 Schedules.next_run: "",

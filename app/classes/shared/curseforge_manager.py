@@ -89,9 +89,7 @@ class CurseForgeManager:
         headers = {"User-Agent": self.UA, "Accept": "application/json"}
         last = None
         for _ in range(6):
-            resp = self.session.get(
-                f"{self.WIDGET}{path}", headers=headers, timeout=25
-            )
+            resp = self.session.get(f"{self.WIDGET}{path}", headers=headers, timeout=25)
             if resp.status_code == 202:
                 last = resp
                 time.sleep(2)
@@ -109,7 +107,9 @@ class CurseForgeManager:
             headers["x-api-key"] = self.api_key
         return headers
 
-    def download_file(self, target_dir, project_id, file_id, subdir=None, filename=None):
+    def download_file(
+        self, target_dir, project_id, file_id, subdir=None, filename=None
+    ):
         """Download a CurseForge file into ``target_dir`` (optionally a subdir).
 
         Uses the keyless website download route, follows the CDN redirect, and

@@ -31,19 +31,19 @@
       <div class="col-sm-12 grid-margin">
         <div class="card mc-hero" id="quick-upgrade">
           <div class="card-body">
-            <h4 class="card-title"><i class="ph-fill ph-rocket-launch"></i> &nbsp;1-Click Version Upgrade</h4>
+            <h4 class="card-title"><i class="ph-fill ph-rocket-launch"></i> &nbsp;1-Click Version Change</h4>
             <p class="mb-2">Current version: <strong id="qu-current">…</strong> <span id="qu-type" class="mc-chip"></span></p>
-            <div id="qu-loading" class="text-muted">Checking for newer versions…</div>
-            <div id="qu-uptodate" class="d-none"><span class="text-success"><i class="ph-fill ph-check-circle"></i> You're on the newest available version.</span></div>
-            <div id="qu-unsupported" class="d-none"><span class="text-warning"><i class="ph-fill ph-warning"></i> 1-click upgrade currently supports vanilla / paper / purpur / folia / fabric. Use the advanced options below for modded servers.</span></div>
+            <div id="qu-loading" class="text-muted">Checking available versions…</div>
+            <div id="qu-uptodate" class="d-none"><span class="text-success"><i class="ph-fill ph-check-circle"></i> No other versions are available to switch to.</span></div>
+            <div id="qu-unsupported" class="d-none"><span class="text-warning"><i class="ph-fill ph-warning"></i> 1-click version change currently supports vanilla / paper / purpur / folia / fabric. Use the advanced options below for modded servers.</span></div>
             <div id="qu-controls" class="d-none">
               <div class="row align-items-end">
                 <div class="col-sm-7">
-                  <label for="qu-version">Upgrade to</label>
+                  <label for="qu-version">Switch to</label>
                   <select id="qu-version" class="form-control"></select>
                 </div>
                 <div class="col-sm-5">
-                  <button id="qu-go" class="btn btn-primary"><i class="ph-fill ph-arrow-fat-up"></i> &nbsp;Upgrade &amp; Restart</button>
+                  <button id="qu-go" class="btn btn-primary"><i class="ph-fill ph-arrows-down-up"></i> &nbsp;Apply &amp; Restart</button>
                 </div>
               </div>
               <small class="text-muted d-block mt-2"><i class="ph-fill ph-shield-check"></i> Your worlds, player data, builds, inventories, stats &amp; advancements are automatically preserved. The server is backed up first, then only the jar is swapped — every world is verified afterwards and restored if needed, so progress always carries forward.</small>
@@ -367,26 +367,52 @@
             if (d.data.type) { $type.textContent = d.data.type; } else { hide($type); }
             if (!d.data.upgradable) { show($unsupported); return; }
             var newer = d.data.newer || [];
-            if (!newer.length) { show($uptodate); return; }
-            newer.forEach(function (v) {
-              var o = document.createElement('option'); o.value = v; o.textContent = v; $version.appendChild(o);
-            });
+            var older = d.data.older || [];
+            if (!newer.length && !older.length) { show($uptodate); return; }
+            var olderSet = {};
+            if (newer.length) {
+              var gUp = document.createElement('optgroup'); gUp.label = 'Newer — upgrade';
+              newer.forEach(function (v) {
+                var o = document.createElement('option'); o.value = v; o.textContent = v; gUp.appendChild(o);
+              });
+              $version.appendChild(gUp);
+            }
+            if (older.length) {
+              var gDown = document.createElement('optgroup'); gDown.label = 'Older — downgrade';
+              older.forEach(function (v) {
+                var o = document.createElement('option'); o.value = v; o.textContent = v;
+                olderSet[v] = true; gDown.appendChild(o);
+              });
+              $version.appendChild(gDown);
+            }
             show($controls);
             if (window.CraftyCustomSelect) { try { window.CraftyCustomSelect.enhance($version); } catch (e) {} }
 
+            var IDLE_BTN = '<i class="ph-fill ph-arrows-down-up"></i> &nbsp;Apply &amp; Restart';
+            $go.innerHTML = IDLE_BTN;
+
             $go.addEventListener('click', function () {
               var version = $version.value;
+              var isDown = !!olderSet[version];
+              var message = isDown
+                ? ('Crafty will back up this server, stop it, install ' + d.data.type + ' ' + version +
+                   ' (a <strong>downgrade</strong> from ' + (d.data.current || '?') + '), and restart it.<br><br>' +
+                   '⚠ Downgrades are risky: a world last saved by a newer Minecraft version may not load ' +
+                   'on an older one, and newer blocks/items can be lost. Your pre-change backup is kept, ' +
+                   'so you can roll back if it fails to load.')
+                : ('Crafty will back up this server, stop it if running, download ' + d.data.type + ' ' +
+                   version + ', and restart it. All your worlds, player data, builds, inventories and ' +
+                   'stats are preserved and verified — progress carries forward automatically.');
               bootbox.confirm({
-                title: 'Upgrade to ' + version + '?',
-                message: 'Crafty will back up this server, stop it if running, download ' + d.data.type +
-                         ' ' + version + ', and restart it. All your worlds, player data, builds, ' +
-                         'inventories and stats are preserved and verified — progress carries forward automatically.',
-                buttons: { confirm: { label: 'Upgrade', className: 'btn-primary' },
+                title: (isDown ? 'Downgrade to ' : 'Upgrade to ') + version + '?',
+                message: message,
+                buttons: { confirm: { label: (isDown ? 'Downgrade' : 'Upgrade'),
+                                      className: (isDown ? 'btn-warning' : 'btn-primary') },
                            cancel: { label: 'Cancel', className: 'btn-secondary' } },
                 callback: function (ok) {
                   if (!ok) return;
                   $go.disabled = true;
-                  $go.innerHTML = '<i class="ph ph-spinner-gap ph-spin"></i> &nbsp;Upgrading…';
+                  $go.innerHTML = '<i class="ph ph-spinner-gap ph-spin"></i> &nbsp;' + (isDown ? 'Downgrading…' : 'Upgrading…');
                   fetch('/api/v2/servers/' + sid + '/version/upgrade', {
                     method: 'POST',
                     headers: { 'X-XSRFToken': getCookie('_xsrf'), 'Content-Type': 'application/json' },
@@ -394,15 +420,15 @@
                                            restart: true, agree_to_eula: true })
                   }).then(function (r) { return r.json(); }).then(function (res) {
                     if (res.status === 'ok') {
-                      try { notify('Upgrade started — backing up and swapping to ' + version + '.'); } catch (e) {}
+                      try { notify((isDown ? 'Downgrade' : 'Upgrade') + ' started — backing up and swapping to ' + version + '.'); } catch (e) {}
                       setTimeout(function () { location.href = '/panel/server_detail?id=' + sid + '&subpage=term'; }, 1500);
                     } else {
-                      $go.disabled = false; $go.innerHTML = '<i class="ph-fill ph-arrow-fat-up"></i> &nbsp;Upgrade &amp; Restart';
+                      $go.disabled = false; $go.innerHTML = IDLE_BTN;
                       bootbox.alert({ title: res.error, message: res.error_data });
                     }
                   }).catch(function (e) {
-                    $go.disabled = false; $go.innerHTML = '<i class="ph-fill ph-arrow-fat-up"></i> &nbsp;Upgrade &amp; Restart';
-                    bootbox.alert('Upgrade request failed: ' + e);
+                    $go.disabled = false; $go.innerHTML = IDLE_BTN;
+                    bootbox.alert(((isDown ? 'Downgrade' : 'Upgrade')) + ' request failed: ' + e);
                   });
                 }
               });

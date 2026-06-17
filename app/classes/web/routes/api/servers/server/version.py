@@ -135,6 +135,10 @@ class ApiServersServerVersionHandler(BaseApiHandler):
                     break
         available = sorted(available, key=version_sort_key, reverse=True)
         newer = [v for v in available if is_newer(v, current)]
+        # Versions older than the current one — downgrade targets. Only computed
+        # when we know the current version, so an unknown version never offers a
+        # blind downgrade.
+        older = [v for v in available if current and is_newer(current, v)]
 
         return self.finish_json(
             200,
@@ -147,6 +151,8 @@ class ApiServersServerVersionHandler(BaseApiHandler):
                     "upgradable": jar_type in UPGRADABLE_TYPES,
                     "available": available,
                     "newer": newer,
+                    "older": older,
+                    "downgradable": bool(older),
                 },
             },
         )
@@ -238,7 +244,7 @@ class ApiServersServerVersionHandler(BaseApiHandler):
 
         self.controller.management.add_to_audit_log(
             auth_data[4]["user_id"],
-            f"started a version upgrade to {jar_type} {version} for server {server_id}",
+            f"started a version change to {jar_type} {version} for server {server_id}",
             server_id,
             self.get_remote_ip(),
         )

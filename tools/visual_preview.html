@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en" class="minecraft">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crafty Fork UI Preview</title>
+  <link href="../app/frontend/static/assets/css/internal/ui-refresh.css" rel="stylesheet">
+  <link href="../app/frontend/static/assets/css/internal/redesign.css" rel="stylesheet">
+  <link href="../app/frontend/static/assets/css/internal/crafty-mods.css" rel="stylesheet">
+  <style>
+    body { padding: 1.5rem; background: var(--mc-deep-bg, #11150f); min-height: 100vh; }
+    .preview-section { margin-bottom: 2.5rem; }
+    .preview-label { color: #9bb08c; font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.75rem; }
+    .card { background: var(--mc-panel-2, #161a24); border: 1px solid var(--mc-edge, #33402b); border-radius: 8px; }
+    .card-body { padding: 1.25rem; }
+    .alert-info.auto-restart-callout { background: rgba(0, 123, 255, 0.08); border: 1px solid rgba(0, 123, 255, 0.22); border-radius: 8px; }
+    .auto-restart-callout .alert-heading { display: flex; align-items: center; gap: 0.5rem; }
+  </style>
+</head>
+<body>
+  <h1 style="color:#eaf2e6;margin-bottom:1.5rem;">Crafty Fork — Visual Preview</h1>
+
+  <div class="preview-section">
+    <div class="preview-label">Schedules page — auto-restart callout</div>
+    <div class="card"><div class="card-body">
+      <div class="alert alert-info auto-restart-callout mb-4" role="status">
+        <div class="auto-restart-callout-content">
+          <h5 class="alert-heading mb-2">Daily auto-restart lives in Server Config</h5>
+          <p class="mb-2">Use Server Config to enable a daily restart at a specific time and timezone. This page is only for other scheduled tasks.</p>
+          <p class="mb-2 auto-restart-callout-status">Enabled daily at 03:30 (America/Chicago)</p>
+          <a class="btn btn-info btn-sm" href="#">Open Server Config</a>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="preview-section">
+    <div class="preview-label">Mod updates page — header + actions + stats</div>
+    <div class="crafty-mods-page"><div class="card"><div class="card-body">
+      <section class="mods-shell">
+        <div class="mods-header">
+          <div>
+            <h3>Mod updates</h3>
+            <p id="mods-last-scan">Ready to scan installed jars.</p>
+          </div>
+          <div class="mods-actions">
+            <label for="mods-loader">Loader</label>
+            <select id="mods-loader" class="form-control"><option>Fabric</option></select>
+            <label for="mods-game-version">Minecraft</label>
+            <input id="mods-game-version" class="form-control" type="text" value="1.21.1">
+            <button class="btn btn-outline-info" type="button" aria-label="Scan installed mods for updates">Scan</button>
+            <button class="btn btn-success" type="button" aria-label="Download and apply available mod updates">Pull updates</button>
+          </div>
+        </div>
+        <div class="mods-autoupdate">
+          <label><input type="checkbox"> Automatically update mods</label>
+          <label><input type="checkbox"> Update Minecraft to latest</label>
+          <span class="mods-autoupdate__freq-label">Check</span>
+          <select class="form-control mods-autoupdate__freq"><option>Weekly</option></select>
+          <span class="mods-autoupdate__status">Off — updates only when you click Pull updates.</span>
+        </div>
+        <div class="mods-summary" aria-live="polite">
+          <div class="mods-stat"><span>Installed</span><strong>12</strong></div>
+          <div class="mods-stat"><span>Recognized</span><strong>10</strong></div>
+          <div class="mods-stat"><span>Updates found</span><strong>2</strong></div>
+          <div class="mods-stat"><span>Updated</span><strong>0</strong></div>
+          <div class="mods-stat"><span>Needs review</span><strong>1</strong></div>
+        </div>
+      </section>
+    </div></div></div>
+  </div>
+</body>
+</html>

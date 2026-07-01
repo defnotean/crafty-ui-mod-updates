@@ -200,6 +200,7 @@ class TasksManager:
                 case "update_executable":
                     svr.server_upgrade()
                 case "update_mods":
+                    # Unified mod update path via Server.update_mods -> ModUpdateManager
                     svr.update_mods()
                 case _:
                     svr.send_command(command)

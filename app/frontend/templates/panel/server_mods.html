@@ -3,10 +3,10 @@
 {% block meta %}
 {% end %}
 
-{% block title %}Crafty Controller - Mod Updates{% end %}
+{% block title %}Crafty Controller - {{ translate('craftyMods', 'pageTitle', data['lang']) }}{% end %}
 
 {% block content %}
-<link href="/static/assets/css/partial/crafty-mods.css" rel="stylesheet">
+<link href="/static/assets/css/internal/crafty-mods.css" rel="stylesheet">
 
 <div class="content-wrapper crafty-mods-page">
     <div class="row page-title-header">
@@ -38,66 +38,68 @@
                     <section class="mods-shell"
                         data-server-id="{{ data['server_stats']['server_id']['server_id'] }}"
                         data-default-loader="{{ data.get('mod_default_loader', 'fabric') }}"
-                        data-default-game-version="{{ data.get('mod_default_game_version', '') }}">
+                        data-default-game-version="{{ data.get('mod_default_game_version', '') }}"
+                        data-i18n-auto-off="{{ translate('craftyMods', 'autoStatusOff', data['lang']) }}"
+                        data-i18n-auto-saving="{{ translate('craftyMods', 'autoStatusSaving', data['lang']) }}">
                         <div class="mods-header">
                             <div>
-                                <h3>Mod updates</h3>
-                                <p id="mods-last-scan">Ready to scan installed jars.</p>
+                                <h3>{{ translate('craftyMods', 'heading', data['lang']) }}</h3>
+                                <p id="mods-last-scan">{{ translate('craftyMods', 'readyToScan', data['lang']) }}</p>
                             </div>
                             <div class="mods-actions">
-                                <label for="mods-loader">Loader</label>
+                                <label for="mods-loader">{{ translate('craftyMods', 'loader', data['lang']) }}</label>
                                 <select id="mods-loader" class="form-control">
                                     <option value="fabric">Fabric</option>
                                     <option value="forge">Forge</option>
                                     <option value="neoforge">NeoForge</option>
                                     <option value="quilt">Quilt</option>
                                 </select>
-                                <label for="mods-game-version">Minecraft</label>
+                                <label for="mods-game-version">{{ translate('craftyMods', 'minecraft', data['lang']) }}</label>
                                 <input id="mods-game-version" class="form-control" type="text" placeholder="1.21.1">
-                                <button id="mods-scan" class="btn btn-outline-info" type="button">
-                                    <i class="ph ph-magnifying-glass"></i>Scan
+                                <button id="mods-scan" class="btn btn-outline-info" type="button" aria-label="{{ translate('craftyMods', 'scanAria', data['lang']) }}">
+                                    <i class="ph ph-magnifying-glass" aria-hidden="true"></i>{{ translate('craftyMods', 'scan', data['lang']) }}
                                 </button>
-                                <button id="mods-update" class="btn btn-success" type="button" disabled>
-                                    <i class="ph ph-cloud-arrow-down"></i>Pull updates
+                                <button id="mods-update" class="btn btn-success" type="button" disabled aria-label="{{ translate('craftyMods', 'pullUpdatesAria', data['lang']) }}">
+                                    <i class="ph ph-cloud-arrow-down" aria-hidden="true"></i>{{ translate('craftyMods', 'pullUpdates', data['lang']) }}
                                 </button>
                             </div>
                         </div>
 
-                        <div class="mods-autoupdate" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:6px 0 16px;padding:12px 14px;border:1px solid var(--mc-edge,#33402b);border-radius:10px;background:var(--mc-deep-bg,#11150f);">
-                            <label style="display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;font-weight:600;">
-                                <input type="checkbox" id="mods-au-enabled" style="width:16px;height:16px;"> <i class="ph-fill ph-arrows-clockwise"></i> Automatically update mods
+                        <div class="mods-autoupdate">
+                            <label>
+                                <input type="checkbox" id="mods-au-enabled"> <i class="ph-fill ph-arrows-clockwise" aria-hidden="true"></i> {{ translate('craftyMods', 'autoUpdateMods', data['lang']) }}
                             </label>
-                            <label style="display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;font-weight:600;" title="Upgrade the server jar to the newest Minecraft release on schedule (vanilla/paper/purpur/folia/fabric). The right Java is pulled automatically.">
-                                <input type="checkbox" id="mods-au-mc" style="width:16px;height:16px;"> <i class="ph-fill ph-cube"></i> Update Minecraft to latest
+                            <label title="{{ translate('craftyMods', 'autoUpdateMcTitle', data['lang']) }}">
+                                <input type="checkbox" id="mods-au-mc"> <i class="ph-fill ph-cube" aria-hidden="true"></i> {{ translate('craftyMods', 'autoUpdateMc', data['lang']) }}
                             </label>
-                            <span style="color:var(--mc-muted,#9bb08c);">Check</span>
-                            <select id="mods-au-freq" class="form-control" style="width:auto;min-width:120px;" data-no-custom>
-                                <option value="daily">Daily</option>
-                                <option value="weekly">Weekly</option>
-                                <option value="monthly">Monthly</option>
+                            <span class="mods-autoupdate__freq-label">{{ translate('craftyMods', 'checkFrequency', data['lang']) }}</span>
+                            <select id="mods-au-freq" class="form-control mods-autoupdate__freq" data-no-custom>
+                                <option value="daily">{{ translate('craftyMods', 'freqDaily', data['lang']) }}</option>
+                                <option value="weekly">{{ translate('craftyMods', 'freqWeekly', data['lang']) }}</option>
+                                <option value="monthly">{{ translate('craftyMods', 'freqMonthly', data['lang']) }}</option>
                             </select>
-                            <span id="mods-au-status" style="color:var(--mc-muted,#9bb08c);font-size:.85rem;"></span>
+                            <span id="mods-au-status" class="mods-autoupdate__status"></span>
                         </div>
 
                         <div class="mods-summary" aria-live="polite">
                             <div class="mods-stat">
-                                <span>Installed</span>
+                                <span>{{ translate('craftyMods', 'installed', data['lang']) }}</span>
                                 <strong id="mods-installed">0</strong>
                             </div>
                             <div class="mods-stat">
-                                <span>Recognized</span>
+                                <span>{{ translate('craftyMods', 'recognized', data['lang']) }}</span>
                                 <strong id="mods-recognized">0</strong>
                             </div>
                             <div class="mods-stat">
-                                <span>Updates found</span>
+                                <span>{{ translate('craftyMods', 'updatesFound', data['lang']) }}</span>
                                 <strong id="mods-updates">0</strong>
                             </div>
                             <div class="mods-stat">
-                                <span>Updated</span>
+                                <span>{{ translate('craftyMods', 'updated', data['lang']) }}</span>
                                 <strong id="mods-updated">0</strong>
                             </div>
                             <div class="mods-stat">
-                                <span>Needs review</span>
+                                <span>{{ translate('craftyMods', 'needsReview', data['lang']) }}</span>
                                 <strong id="mods-review">0</strong>
                             </div>
                         </div>
@@ -109,34 +111,34 @@
                                 <table class="table mods-table">
                                     <thead>
                                         <tr>
-                                            <th>Mod</th>
-                                            <th>Source</th>
-                                            <th>Installed</th>
-                                            <th>Latest</th>
-                                            <th class="d-none d-lg-table-cell">Game</th>
-                                            <th class="d-none d-lg-table-cell">Loader</th>
-                                            <th>Status</th>
+                                            <th>{{ translate('craftyMods', 'modColumn', data['lang']) }}</th>
+                                            <th>{{ translate('craftyMods', 'sourceColumn', data['lang']) }}</th>
+                                            <th>{{ translate('craftyMods', 'installedColumn', data['lang']) }}</th>
+                                            <th>{{ translate('craftyMods', 'latestColumn', data['lang']) }}</th>
+                                            <th class="d-none d-lg-table-cell">{{ translate('craftyMods', 'gameColumn', data['lang']) }}</th>
+                                            <th class="d-none d-lg-table-cell">{{ translate('craftyMods', 'loaderColumn', data['lang']) }}</th>
+                                            <th>{{ translate('craftyMods', 'statusColumn', data['lang']) }}</th>
                                         </tr>
                                     </thead>
                                     <tbody id="mods-table-body">
                                         <tr>
-                                            <td colspan="7" class="mods-empty">No scan results yet.</td>
+                                            <td colspan="7" class="mods-empty">{{ translate('craftyMods', 'noScanResults', data['lang']) }}</td>
                                         </tr>
                                     </tbody>
                                 </table>
                             </div>
                             <aside class="mods-side-panel">
                                 <div>
-                                    <span class="mods-panel-label">Source</span>
-                                    <strong>Modrinth hash lookup</strong>
+                                    <span class="mods-panel-label">{{ translate('craftyMods', 'sourcePanel', data['lang']) }}</span>
+                                    <strong>{{ translate('craftyMods', 'sourceValue', data['lang']) }}</strong>
                                 </div>
                                 <div>
-                                    <span class="mods-panel-label">Updates</span>
-                                    <strong id="mods-mode">Stopped-server apply</strong>
+                                    <span class="mods-panel-label">{{ translate('craftyMods', 'updatesPanel', data['lang']) }}</span>
+                                    <strong id="mods-mode">{{ translate('craftyMods', 'updatesMode', data['lang']) }}</strong>
                                 </div>
                                 <div>
-                                    <span class="mods-panel-label">Backups</span>
-                                    <strong id="mods-backup">Created during pull</strong>
+                                    <span class="mods-panel-label">{{ translate('craftyMods', 'backupsPanel', data['lang']) }}</span>
+                                    <strong id="mods-backup">{{ translate('craftyMods', 'backupsValue', data['lang']) }}</strong>
                                 </div>
                             </aside>
                         </div>
@@ -150,16 +152,16 @@
       <div class="col-sm-12 grid-margin">
         <div class="card">
           <div class="card-body">
-            <h4 class="card-title"><i class="ph-fill ph-package"></i> &nbsp;Installed mods &amp; plugins</h4>
-            <p class="text-muted mb-2" style="font-size:.88rem;">Every <code>.jar</code> in this server's <code>mods/</code> and <code>plugins/</code> folders. Click <b>Remove</b> to delete one. Tip: if the server is running, <b>stop it first</b> — Java locks these files while it runs, so a live removal can fail.</p>
-            <div id="inst-status" class="text-muted small mb-2">Loading…</div>
+            <h4 class="card-title"><i class="ph-fill ph-package" aria-hidden="true"></i> &nbsp;{{ translate('craftyMods', 'installedSection', data['lang']) }}</h4>
+            <p class="text-muted mb-2 mods-hint">{{ translate('craftyMods', 'installedHint', data['lang']) }}</p>
+            <div id="inst-status" class="text-muted small mb-2">{{ translate('craftyMods', 'loading', data['lang']) }}</div>
             <div class="table-responsive">
               <table class="table mods-table">
-                <thead><tr><th>File</th><th>Folder</th><th>Size</th><th class="text-right">Action</th></tr></thead>
+                <thead><tr><th>{{ translate('craftyMods', 'fileColumn', data['lang']) }}</th><th>{{ translate('craftyMods', 'folderColumn', data['lang']) }}</th><th>{{ translate('craftyMods', 'sizeColumn', data['lang']) }}</th><th class="text-right">{{ translate('craftyMods', 'actionColumn', data['lang']) }}</th></tr></thead>
                 <tbody id="inst-body"></tbody>
               </table>
             </div>
-            <button id="inst-refresh" class="btn btn-sm btn-outline-info" type="button"><i class="ph ph-arrows-clockwise"></i>&nbsp;Refresh list</button>
+            <button id="inst-refresh" class="btn btn-sm btn-outline-info" type="button" aria-label="{{ translate('craftyMods', 'refreshListAria', data['lang']) }}"><i class="ph ph-arrows-clockwise" aria-hidden="true"></i>&nbsp;{{ translate('craftyMods', 'refreshList', data['lang']) }}</button>
           </div>
         </div>
       </div>
@@ -169,19 +171,19 @@
       <div class="col-sm-12 grid-margin">
         <div class="card mc-hero">
           <div class="card-body">
-            <h4 class="card-title"><i class="ph-fill ph-magnifying-glass"></i> &nbsp;Browse &amp; add mods</h4>
-            <p class="text-muted mb-3" style="font-size:.88rem;">Search Modrinth and install mods straight into this server. Versions are filtered to your loader &amp; Minecraft version (set above), and required dependencies install automatically.</p>
+            <h4 class="card-title"><i class="ph-fill ph-magnifying-glass" aria-hidden="true"></i> &nbsp;{{ translate('craftyMods', 'browseHeading', data['lang']) }}</h4>
+            <p class="text-muted mb-3 mods-hint">{{ translate('craftyMods', 'browseHint', data['lang']) }}</p>
             <div class="row align-items-end">
               <div class="col-lg-8 col-md-7 form-group mb-2">
-                <label for="modfind-q">Search mods</label>
-                <input id="modfind-q" class="form-control" placeholder="e.g. sodium, create, fabric api…" autocomplete="off">
+                <label for="modfind-q">{{ translate('craftyMods', 'searchMods', data['lang']) }}</label>
+                <input id="modfind-q" class="form-control" placeholder="{{ translate('craftyMods', 'searchModsPlaceholder', data['lang']) }}" autocomplete="off">
               </div>
               <div class="col-lg-2 col-md-3 form-group mb-2">
-                <label for="modfind-gv">MC Version</label>
+                <label for="modfind-gv">{{ translate('craftyMods', 'mcVersion', data['lang']) }}</label>
                 <input id="modfind-gv" class="form-control" placeholder="auto" autocomplete="off">
               </div>
               <div class="col-lg-2 col-md-2 form-group mb-2">
-                <button id="modfind-go" class="btn btn-primary btn-block"><i class="ph-bold ph-magnifying-glass"></i>&nbsp;Search</button>
+                <button id="modfind-go" class="btn btn-primary btn-block" aria-label="{{ translate('craftyMods', 'searchModsAria', data['lang']) }}"><i class="ph-bold ph-magnifying-glass" aria-hidden="true"></i>&nbsp;{{ translate('craftyMods', 'searchButton', data['lang']) }}</button>
               </div>
             </div>
             <div id="modfind-status" class="text-muted small mb-2"></div>
@@ -356,7 +358,7 @@
             const parts = [];
             if (cfg.enabled) parts.push("mods");
             if (cfg.update_minecraft) parts.push("Minecraft version");
-            if (!parts.length) { auStatus.textContent = "Off — updates only when you click Pull updates."; return; }
+            if (!parts.length) { auStatus.textContent = modsShell.dataset.i18nAutoOff || "Off — updates only when you click Pull updates."; return; }
             const last = cfg.last_check ? new Date(cfg.last_check).toLocaleString() : "not yet";
             auStatus.textContent = "Auto-updating " + parts.join(" + ") + " · checks " + cfg.frequency + " · last checked: " + last;
         }
@@ -373,7 +375,7 @@
             } catch (e) { }
         }
         async function save() {
-            auStatus.textContent = "Saving…";
+            auStatus.textContent = modsShell.dataset.i18nAutoSaving || "Saving…";
             try {
                 const r = await fetch("/api/v2/servers/" + modsServerId + "/mods/autoupdate", {
                     method: "POST",
@@ -539,10 +541,10 @@
             files.forEach(function (f) {
                 var tr = document.createElement('tr');
                 tr.innerHTML =
-                    '<td style="word-break:break-all;"><i class="ph ph-file-archive"></i> ' + esc(f.name) + '</td>' +
-                    '<td><span style="font-size:.72rem;padding:2px 8px;border:1px solid var(--mc-edge,#33402b);border-radius:6px;white-space:nowrap;">' + esc(f.folder) + '/</span></td>' +
+                    '<td class="mods-file-name"><i class="ph ph-file-archive" aria-hidden="true"></i> ' + esc(f.name) + '</td>' +
+                    '<td><span class="mods-folder-badge">' + esc(f.folder) + '/</span></td>' +
                     '<td>' + esc(f.size) + '</td>' +
-                    '<td class="text-right" style="white-space:nowrap;"><button class="btn btn-sm btn-outline-danger inst-del" type="button"><i class="ph ph-trash"></i>&nbsp;Remove</button> <span class="inst-msg small"></span></td>';
+                    '<td class="text-right mods-action-cell"><button class="btn btn-sm btn-outline-danger inst-del" type="button" aria-label="Remove ' + esc(f.name) + '"><i class="ph ph-trash" aria-hidden="true"></i>&nbsp;Remove</button> <span class="inst-msg small"></span></td>';
                 var btn = tr.querySelector('.inst-del'), msg = tr.querySelector('.inst-msg');
                 btn.addEventListener('click', function () { removeJar(f, tr, btn, msg); });
                 instBody.appendChild(tr);

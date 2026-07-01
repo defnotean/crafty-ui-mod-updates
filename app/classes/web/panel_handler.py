@@ -690,24 +690,14 @@ class PanelHandler(BaseHandler):
 
             if subpage == "schedules":
                 schedules = list(HelpersManagement.get_schedules_by_server(server_id))
-                page_data["schedules"] = schedules
-                page_data["auto_restart_schedule"] = None
-                for schedule in schedules:
-                    if (
+                page_data["schedules"] = [
+                    schedule
+                    for schedule in schedules
+                    if not (
                         schedule.name == AUTO_RESTART_SCHEDULE_NAME
                         and schedule.command == "restart_server"
-                    ):
-                        page_data["auto_restart_schedule"] = {
-                            "schedule_id": schedule.schedule_id,
-                            "enabled": schedule.enabled,
-                            "interval": schedule.interval,
-                            "interval_type": schedule.interval_type,
-                            "start_time": schedule.start_time or "04:00",
-                            "timezone": schedule.timezone or str(get_localzone()),
-                            "next_run": schedule.next_run,
-                        }
-                        break
-                page_data["local_timezone"] = str(get_localzone())
+                    )
+                ]
 
             if subpage == "update_center":
                 page_data["server_api"] = (

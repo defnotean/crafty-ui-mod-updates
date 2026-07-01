@@ -135,6 +135,21 @@ def migrate(migrator: Migrator, database, **kwargs):
             )
             return
 
+        column_names = {column_data.name for column_data in servers_columns}
+        if "show_status" not in column_names:
+            logger.debug(
+                "Skipping UUID part2 data migration on schema without show_status"
+            )
+            Console.debug(
+                "Skipping UUID part2 data migration on schema without show_status"
+            )
+            return
+
+        if db.execute_sql("SELECT COUNT(*) FROM servers").fetchone()[0] == 0:
+            logger.debug("Skipping UUID part2 data migration — no server rows")
+            Console.debug("Skipping UUID part2 data migration — no server rows")
+            return
+
     try:
         logger.debug("Migrating Data from Int to UUID (Foreign Keys)")
         Console.debug("Migrating Data from Int to UUID (Foreign Keys)")

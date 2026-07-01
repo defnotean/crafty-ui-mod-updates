@@ -1,4 +1,45 @@
 [![Crafty Logo](app/frontend/static/assets/images/logo_long.svg)](https://craftycontrol.com)
+
+## Fork features (this build)
+
+This repository extends upstream Crafty Controller with mod management, modpack import, and scheduled maintenance helpers.
+
+### Mod updates & auto-update
+
+- **Mod Updates page** (per server): scan installed jars via Modrinth, pull compatible updates, browse/install mods, and manage installed `.jar` files.
+- **Scheduled auto-update** is stored per server in `crafty_mod_autoupdate.json` (in the server directory). Options include:
+  - automatically update mods on a **daily / weekly / monthly** schedule;
+  - optionally upgrade the server jar to the latest Minecraft release (vanilla, Paper, Purpur, Folia, Fabric).
+- Auto-update only stops/restarts a server when there is work to do — up-to-date servers are left running.
+
+### Environment variables
+
+| Variable | Purpose |
+| -------- | ------- |
+| `CURSEFORGE_API_KEY` | CurseForge API key for modpack import, CurseForge search, and hash-based mod recognition (optional but recommended for CurseForge content). |
+| `CRAFTY_BORE_NODE` | Path to the Node.js binary used by the bore tunnel client. |
+| `CRAFTY_BORE_CLIENT` | Path to the bore client script (`.mjs`). |
+| `CRAFTY_BORE_HOST` | Bore relay host (e.g. `bore.pub`) for one-click public routing. |
+
+### Auto-restart
+
+Enable **Auto-restart** under **Server Config** for a daily scheduled restart at a configured time and timezone. Offline servers are not started by this job.
+
+### Discover & modpack import
+
+Use **Discover** in the sidebar to search Modrinth (modpacks, mods, datapacks, resource packs, shaders) or import a Modrinth/CurseForge modpack link or `.mrpack` / `.zip` upload — Crafty creates the server, picks loader + Minecraft version, and downloads content in the background.
+
+### Development & CI
+
+```sh
+pip install -r requirements.txt -r requirements-dev.txt
+python -m pytest tests/ -q
+```
+
+GitHub Actions runs the same pytest suite on push and pull requests (`.github/workflows/test.yml`).
+
+---
+
 # Crafty Controller 4.10.4
 > Python based Control Panel for your Minecraft Server
 

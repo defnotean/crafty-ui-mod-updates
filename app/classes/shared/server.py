@@ -36,7 +36,7 @@ from app.classes.models.server_permissions import PermissionsServers
 from app.classes.shared.console import Console
 from app.classes.helpers.helpers import Helpers
 from app.classes.helpers.file_helpers import FileHelpers
-from app.classes.shared.mod_updater import ModrinthModUpdater
+from app.classes.shared.mod_update_manager import ModUpdateManager
 from app.classes.shared.null_writer import NullWriter
 from app.classes.shared.websocket_manager import WebSocketManager
 from app.classes.steamcmd.steamcmd import SteamCMD
@@ -47,6 +47,9 @@ with redirect_stderr(NullWriter()):
     from psutil import NoSuchProcess
 
 logger = logging.getLogger(__name__)
+
+AUTO_RESTART_LEGACY_SCHEDULE_NAME = "Automatic Restart"
+AUTO_RESTART_LEGACY_SCHEDULE_COMMAND = "restart_server"
 SUCCESSMSG = "SUCCESS! Forge install completed"
 
 
@@ -355,10 +358,86 @@ class ServerInstance:
         except JobLookupError:
             return
 
+    _global_schedule_job_remover = None
+
+    @classmethod
+    def register_global_schedule_job_remover(cls, remover):
+        cls._global_schedule_job_remover = remover
+
+    @staticmethod
+    def is_legacy_auto_restart_schedule(schedule):
+        return (
+            schedule.name == AUTO_RESTART_LEGACY_SCHEDULE_NAME
+            and schedule.command == AUTO_RESTART_LEGACY_SCHEDULE_COMMAND
+        )
+
+    def _best_effort_remove_global_schedule_job(self, schedule_id):
+        remover = ServerInstance._global_schedule_job_remover
+        if not callable(remover):
+            logger.debug(
+                "Legacy auto-restart schedule %s removed from DB; global scheduler "
+                "job may remain until Crafty restarts.",
+                schedule_id,
+            )
+            return
+        try:
+            remover(schedule_id)
+        except JobLookupError:
+            pass
+
+    def _remove_legacy_auto_restart_task(self, schedule):
+        schedule_id = schedule.schedule_id
+        was_enabled = schedule.enabled and schedule.interval_type != "reaction"
+        for child in self.management_helper.get_child_schedules(schedule_id):
+            self.management_helper.update_scheduled_task(
+                child.schedule_id, {"parent": None}
+            )
+        self.management_helper.delete_scheduled_task(schedule_id)
+        if was_enabled:
+            self._best_effort_remove_global_schedule_job(schedule_id)
+
+    def migrate_legacy_auto_restart_schedule(self):
+        if not hasattr(self, "management_helper"):
+            return False
+
+        legacy_schedules = [
+            schedule
+            for schedule in self.management_helper.get_schedules_by_server(
+                self.server_id
+            )
+            if self.is_legacy_auto_restart_schedule(schedule)
+        ]
+        if not legacy_schedules:
+            return False
+
+        legacy = legacy_schedules[0]
+        if not self.settings.get("auto_restart"):
+            updates = {
+                "auto_restart": bool(legacy.enabled),
+                "auto_restart_time": legacy.start_time or "04:00",
+                "auto_restart_timezone": legacy.timezone or "UTC",
+            }
+            server_obj = HelperServers.get_server_obj(self.server_id)
+            for field, value in updates.items():
+                setattr(server_obj, field, value)
+            HelperServers.update_server(server_obj)
+            self.settings.update(updates)
+            logger.info(
+                "Migrated legacy automatic restart schedule for server %s "
+                "to server config columns.",
+                self.server_id,
+            )
+
+        for schedule in legacy_schedules:
+            self._remove_legacy_auto_restart_task(schedule)
+
+        return True
+
     def sync_auto_restart_schedule(self):
         if not hasattr(self, "server_scheduler"):
             return
 
+        self.migrate_legacy_auto_restart_schedule()
         self.remove_auto_restart_schedule()
         if not self.settings.get("auto_restart"):
             return
@@ -1740,19 +1819,13 @@ class ServerInstance:
         )
         update_thread.start()
 
-    def _get_mod_update_context(self) -> tuple[list[str], list[str]]:
+    def _get_mod_update_context(self) -> tuple[str, str]:
         server_stats = self.stats_helper.get_server_stats()
-        loaders = ModrinthModUpdater.detect_loaders(
-            self.settings.get("executable"),
-            self.settings.get("execution_command"),
-            server_stats.get("version"),
+        loader = ModUpdateManager.infer_loader(self.settings)
+        game_version = ModUpdateManager.infer_game_version(
+            server_stats, self.settings
         )
-        game_versions = ModrinthModUpdater.detect_game_versions(
-            server_stats.get("version"),
-            self.settings.get("executable"),
-            self.settings.get("execution_command"),
-        )
-        return loaders, game_versions
+        return loader, game_version
 
     def _notify_server_users(self, server_users, message: str) -> None:
         for user in server_users:
@@ -1760,20 +1833,32 @@ class ServerInstance:
 
     def threaded_mod_update(self):
         server_users = PermissionsServers.get_server_user_list(self.server_id)
-        updater = ModrinthModUpdater()
         server_path = Helpers.get_os_understandable_path(self.settings["path"])
-        candidates = updater.discover_candidates(server_path)
+        manager = ModUpdateManager(server_path)
 
-        if not candidates:
+        try:
+            preview = manager.scan()
+        except ValueError as why:
             self._notify_server_users(
                 server_users,
-                "No mod or plugin .jar files were found for " + self.name + ".",
+                "Mod update could not scan mods for "
+                + self.name
+                + ": "
+                + str(why),
             )
             self.stats_helper.set_update(False)
             return
 
-        loaders, game_versions = self._get_mod_update_context()
-        if not loaders or not game_versions:
+        if not preview.get("mods"):
+            self._notify_server_users(
+                server_users,
+                "No mod .jar files were found for " + self.name + ".",
+            )
+            self.stats_helper.set_update(False)
+            return
+
+        loader, game_version = self._get_mod_update_context()
+        if not loader or not game_version:
             self._notify_server_users(
                 server_users,
                 "Unable to detect loader or Minecraft version for "
@@ -1821,7 +1906,7 @@ class ServerInstance:
                 )
                 return
 
-            result = updater.update(server_path, loaders, game_versions)
+            scan = manager.update_available(loader, game_version)
         except Exception as why:
             logger.error("Mod update failed for %s: %s", self.name, why, exc_info=True)
             self._notify_server_users(
@@ -1834,19 +1919,38 @@ class ServerInstance:
             if was_started:
                 self.run_threaded_server(HelperUsers.get_user_id_by_name("system"))
 
-        logger.info("Mod update finished for %s. %s", self.name, result.summary)
-        for message in result.messages:
-            logger.info("Mod update detail for %s: %s", self.name, message)
+        summary = scan.get("summary", {})
+        checked = summary.get("installed", 0)
+        updated = summary.get("updated", 0)
+        failed = sum(
+            1 for mod in scan.get("mods", []) if mod.get("status") == "failed"
+        )
+        skipped = max(0, checked - updated - failed)
+        result_summary = (
+            f"Checked {checked} files. Updated {updated}, "
+            f"skipped {skipped}, failed {failed}."
+        )
+
+        logger.info("Mod update finished for %s. %s", self.name, result_summary)
+        for mod in scan.get("mods", []):
+            message = mod.get("message", "")
+            if message:
+                logger.info(
+                    "Mod update detail for %s (%s): %s",
+                    self.name,
+                    mod.get("filename", "?"),
+                    message,
+                )
         self.management_helper.add_to_audit_log_raw(
             "Alert",
             "-1",
             self.server_id,
-            "Mod update finished for " + self.name + ". " + result.summary,
+            "Mod update finished for " + self.name + ". " + result_summary,
             self.settings["server_ip"],
         )
         self._notify_server_users(
             server_users,
-            "Mod update finished for " + self.name + ". " + result.summary,
+            "Mod update finished for " + self.name + ". " + result_summary,
         )
 
     def write_player_cache(self):

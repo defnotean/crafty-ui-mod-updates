@@ -195,19 +195,19 @@ class ModUpdateManager:
     def _get_modrinth_latest_versions(
         self, hashes: list[str], loader: str, game_versions: list[str]
     ) -> dict[str, Any]:
-        versions = {}
-        for file_hash in hashes:
-            version = self._post_modrinth(
-                f"/version_file/{file_hash}/update?algorithm=sha512",
-                {
-                    "loaders": [loader],
-                    "game_versions": game_versions,
-                },
-                default=None,
-            )
-            if version:
-                versions[file_hash] = version
-        return versions
+        if not hashes:
+            return {}
+        result = self._post_modrinth(
+            "/version_files/update",
+            {
+                "hashes": hashes,
+                "algorithm": "sha512",
+                "loaders": [loader],
+                "game_versions": game_versions,
+            },
+            default={},
+        )
+        return result if isinstance(result, dict) else {}
 
     def _post_modrinth(self, endpoint: str, payload: dict[str, Any], default):
         try:

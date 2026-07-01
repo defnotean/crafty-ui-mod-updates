@@ -38,8 +38,11 @@ class FakeSession:
         self.download_bytes = download_bytes
 
     def post(self, url, **_kwargs):
-        if "/version_file/" in url and urlparse(url).path.endswith("/update"):
-            file_hash = urlparse(url).path.split("/")[-2]
+        path = urlparse(url).path
+        if path.endswith("/version_files/update"):
+            return FakeResponse(payload=self.latest_versions)
+        if "/version_file/" in url and path.endswith("/update"):
+            file_hash = path.split("/")[-2]
             payload = self.latest_versions.get(file_hash)
             if payload:
                 return FakeResponse(payload=payload)

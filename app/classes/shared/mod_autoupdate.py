@@ -263,11 +263,27 @@ def _try_mc_upgrade(controller, server_id, path, server_data):
     server_obj = controller.servers.get_server_obj(server_id)
     server_obj.executable_update_url = url
     controller.servers.update_server(server_obj)
-    try:
-        with open(os.path.join(path, "eula.txt"), "w", encoding="utf-8") as eula:
-            eula.write("eula=true")
-    except Exception:  # noqa: BLE001
-        pass
+
+    eula_path = os.path.join(path, "eula.txt")
+    eula_accepted = False
+    if os.path.isfile(eula_path):
+        try:
+            with open(eula_path, "r", encoding="utf-8") as eula:
+                line = eula.readline().strip().lower().replace(" ", "")
+            eula_accepted = line == "eula=true"
+        except Exception:  # noqa: BLE001
+            pass
+    if not eula_accepted:
+        try:
+            with open(eula_path, "w", encoding="utf-8") as eula:
+                eula.write("eula=false")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("mod-autoupdate: could not write eula.txt: %s", exc)
+        else:
+            logger.warning(
+                "mod-autoupdate: Minecraft upgrade requires manual EULA acceptance; "
+                "created eula.txt with eula=false — server will not auto-start"
+            )
 
     system_user = HelperUsers.get_user_id_by_name("system")
     controller.management.send_command(
@@ -280,6 +296,11 @@ def _try_mc_upgrade(controller, server_id, path, server_data):
         latest,
         jar_type,
     )
+    if not eula_accepted:
+        logger.info(
+            "mod-autoupdate: %s upgrade queued; auto-start skipped until EULA accepted",
+            server_id,
+        )
     return True
 
 

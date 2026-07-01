@@ -200,19 +200,23 @@
                         <input type="checkbox" class="custom-control-input" id="auto_restart" name="auto_restart"
                           value="1">
                         {% end %}
-                        <label class="custom-control-label" for="auto_restart">&nbsp;&nbsp;Automatic restart</label>
+                        <label class="custom-control-label" for="auto_restart">&nbsp;&nbsp;{{ translate('serverConfig',
+                        'serverAutoRestart', data['lang']) }}</label>
                       </div>
-                      <span class="auto-restart-status" id="auto_restart_summary">Off</span>
+                      <span class="auto-restart-status" id="auto_restart_summary">{{ translate('serverConfig',
+                        'serverAutoRestartOff', data['lang']) }}</span>
                     </div>
                     <div class="auto-restart-fields" id="auto_restart_fields">
                       <div>
-                        <label for="auto_restart_time">Daily time</label>
+                        <label for="auto_restart_time">{{ translate('serverConfig', 'serverAutoRestartTime',
+                          data['lang']) }}</label>
                         <input type="time" class="form-control" name="auto_restart_time" id="auto_restart_time"
                           value="{{ data['server_stats']['server_id'].get('auto_restart_time', '04:00') or '04:00' }}"
                           required>
                       </div>
                       <div>
-                        <label for="auto_restart_timezone">Timezone</label>
+                        <label for="auto_restart_timezone">{{ translate('serverConfig', 'serverAutoRestartTimezone',
+                          data['lang']) }}</label>
                         <input type="text" class="form-control" name="auto_restart_timezone"
                           id="auto_restart_timezone" list="auto_restart_timezone_examples"
                           value="{{ data['server_stats']['server_id'].get('auto_restart_timezone', 'UTC') or 'UTC' }}"
@@ -345,6 +349,8 @@
     }
   }
 
+  const autoRestartSummaryOff = "{{ translate('serverConfig', 'serverAutoRestartOff', data['lang']) }}";
+
   function syncAutoRestartControls() {
     if (!autoRestartToggle || !autoRestartFields || !autoRestartSummary) {
       return;
@@ -353,7 +359,7 @@
     const timeValue = autoRestartTime.value || "04:00";
     const timezoneValue = autoRestartTimezone.value || "UTC";
     autoRestartFields.classList.toggle("is-disabled", !enabled);
-    autoRestartSummary.textContent = enabled ? `${timeValue} ${timezoneValue}` : "Off";
+    autoRestartSummary.textContent = enabled ? `${timeValue} ${timezoneValue}` : autoRestartSummaryOff;
   }
 
   const browserTimezone = getBrowserTimezone();

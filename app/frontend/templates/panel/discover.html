@@ -1,13 +1,13 @@
 {% extends ../base.html %}
 
-{% block title %}Crafty Controller - Discover{% end %}
+{% block title %}Crafty Controller - {{ translate('craftyDiscover', 'pageTitle', data['lang']) }}{% end %}
 
 {% block content %}
 <div class="content-wrapper">
   <div class="row page-title-header">
     <div class="col-12">
       <div class="page-header">
-        <h4 class="page-title"><i class="ph-fill ph-compass-tool"></i>&nbsp;Discover &mdash; Modrinth</h4>
+        <h4 class="page-title"><i class="ph-fill ph-compass-tool" aria-hidden="true"></i>&nbsp;{{ translate('craftyDiscover', 'pageTitle', data['lang']) }}</h4>
       </div>
     </div>
   </div>
@@ -16,37 +16,37 @@
     <div class="col-12 grid-margin">
       <div class="card mc-hero">
         <div class="card-body">
-          <h5 class="mb-1"><i class="ph-fill ph-package"></i>&nbsp;Import a modpack &mdash; auto-setup a server</h5>
-          <p class="text-muted mb-3" style="font-size:.85rem;">Paste a <b>Modrinth</b> or <b>CurseForge</b> modpack link, or upload a <code>.mrpack</code> / CurseForge <code>.zip</code>. Crafty picks the loader + Minecraft version, creates the server, and downloads every mod for you.</p>
+          <h5 class="mb-1"><i class="ph-fill ph-package" aria-hidden="true"></i>&nbsp;{{ translate('craftyDiscover', 'importHeading', data['lang']) }}</h5>
+          <p class="text-muted mb-3 mods-hint">{{ translate('craftyDiscover', 'importHint', data['lang']) }}</p>
           <div class="row">
             <div class="col-lg-7 form-group mb-2">
-              <label for="imp-link">Modpack link <span id="imp-src" class="badge badge-secondary" style="display:none;"></span></label>
+              <label for="imp-link">{{ translate('craftyDiscover', 'modpackLink', data['lang']) }} <span id="imp-src" class="badge badge-secondary" style="display:none;"></span></label>
               <input id="imp-link" class="form-control" placeholder="https://modrinth.com/modpack/…   or   https://www.curseforge.com/minecraft/modpacks/…" autocomplete="off">
             </div>
             <div class="col-lg-5 form-group mb-2">
-              <label for="imp-file">…or upload a pack file</label>
+              <label for="imp-file">{{ translate('craftyDiscover', 'uploadPack', data['lang']) }}</label>
               <input id="imp-file" type="file" accept=".mrpack,.zip" class="form-control">
             </div>
           </div>
           <div class="row align-items-end">
             <div class="col-md-4 form-group mb-2">
-              <label for="imp-name">Server name</label>
-              <input id="imp-name" class="form-control" placeholder="My Modpack Server">
+              <label for="imp-name">{{ translate('craftyDiscover', 'serverName', data['lang']) }}</label>
+              <input id="imp-name" class="form-control" placeholder="{{ translate('craftyDiscover', 'serverNamePlaceholder', data['lang']) }}">
             </div>
             <div class="col-md-3 form-group mb-2">
-              <label for="imp-port">Port</label>
+              <label for="imp-port">{{ translate('craftyDiscover', 'port', data['lang']) }}</label>
               <input id="imp-port" type="number" class="form-control" value="25565" min="1" max="65535">
             </div>
             <div class="col-md-2 form-group mb-2">
-              <label for="imp-min">Min GB</label>
+              <label for="imp-min">{{ translate('craftyDiscover', 'minGb', data['lang']) }}</label>
               <input id="imp-min" type="number" step="0.5" min="0.5" class="form-control" value="3">
             </div>
             <div class="col-md-2 form-group mb-2">
-              <label for="imp-max">Max GB</label>
+              <label for="imp-max">{{ translate('craftyDiscover', 'maxGb', data['lang']) }}</label>
               <input id="imp-max" type="number" step="0.5" min="0.5" class="form-control" value="6">
             </div>
             <div class="col-md-1 form-group mb-2">
-              <button id="imp-go" class="btn btn-primary btn-block" title="Set up server"><i class="ph-fill ph-rocket-launch"></i></button>
+              <button id="imp-go" class="btn btn-primary btn-block" title="{{ translate('craftyDiscover', 'setupServer', data['lang']) }}" aria-label="{{ translate('craftyDiscover', 'setupServerAria', data['lang']) }}"><i class="ph-fill ph-rocket-launch" aria-hidden="true"></i></button>
             </div>
           </div>
           <div id="imp-msg" class="mt-1" style="font-size:.85rem;"></div>
@@ -61,11 +61,11 @@
         <div class="card-body">
           <form id="mr-form" class="row align-items-end" onsubmit="return false;">
             <div class="col-lg-4 col-md-12 form-group mb-2">
-              <label for="mr-q">Search</label>
-              <input id="mr-q" class="form-control" placeholder="Search Modrinth…" autocomplete="off">
+              <label for="mr-q">{{ translate('craftyDiscover', 'search', data['lang']) }}</label>
+              <input id="mr-q" class="form-control" placeholder="{{ translate('craftyDiscover', 'searchPlaceholder', data['lang']) }}" autocomplete="off">
             </div>
             <div class="col-lg-3 col-md-4 form-group mb-2">
-              <label for="mr-type">Type</label>
+              <label for="mr-type">{{ translate('craftyDiscover', 'type', data['lang']) }}</label>
               <select id="mr-type" class="form-control" data-no-custom>
                 <option value="modpack">Modpacks</option>
                 <option value="mod">Mods</option>
@@ -75,9 +75,9 @@
               </select>
             </div>
             <div class="col-lg-2 col-md-4 form-group mb-2">
-              <label for="mr-loader">Loader</label>
+              <label for="mr-loader">{{ translate('craftyDiscover', 'loader', data['lang']) }}</label>
               <select id="mr-loader" class="form-control" data-no-custom>
-                <option value="">Any</option>
+                <option value="">{{ translate('craftyDiscover', 'anyLoader', data['lang']) }}</option>
                 <option value="fabric">Fabric</option>
                 <option value="forge">Forge</option>
                 <option value="neoforge">NeoForge</option>
@@ -85,11 +85,11 @@
               </select>
             </div>
             <div class="col-lg-2 col-md-3 form-group mb-2">
-              <label for="mr-gv">MC Version</label>
-              <input id="mr-gv" class="form-control" placeholder="e.g. 1.21.1" autocomplete="off">
+              <label for="mr-gv">{{ translate('craftyDiscover', 'mcVersion', data['lang']) }}</label>
+              <input id="mr-gv" class="form-control" placeholder="{{ translate('craftyDiscover', 'mcVersionPlaceholder', data['lang']) }}" autocomplete="off">
             </div>
             <div class="col-lg-1 col-md-1 form-group mb-2">
-              <button id="mr-search" type="submit" class="btn btn-primary btn-block"><i class="ph-bold ph-magnifying-glass"></i></button>
+              <button id="mr-search" type="submit" class="btn btn-primary btn-block" aria-label="{{ translate('craftyDiscover', 'searchAria', data['lang']) }}"><i class="ph-bold ph-magnifying-glass" aria-hidden="true"></i></button>
             </div>
           </form>
         </div>
@@ -98,7 +98,7 @@
   </div>
 
   <div class="row" id="mr-results"></div>
-  <div class="text-center text-muted my-4" id="mr-status">Search Modrinth for modpacks, mods, datapacks and more.</div>
+  <div class="text-center text-muted my-4" id="mr-status">{{ translate('craftyDiscover', 'statusDefault', data['lang']) }}</div>
 </div>
 
 <div class="modal fade" id="mr-modal" tabindex="-1" role="dialog" aria-hidden="true">

@@ -124,12 +124,12 @@ def controller_setup():
 
 def get_migration_notifications():
     migration_notifications = []
-    for file in os.listdir(
-        os.path.join(APPLICATION_PATH, "app", "migrations", "status")
-    ):
-        if os.path.isfile(file):
+    status_dir = os.path.join(APPLICATION_PATH, "app", "migrations", "status")
+    for file in os.listdir(status_dir):
+        status_path = os.path.join(status_dir, file)
+        if os.path.isfile(status_path):
             with open(
-                os.path.join(APPLICATION_PATH, "app", "migrations", "status", file),
+                status_path,
                 encoding="utf-8",
             ) as status_file:
                 status_json = json.load(status_file)

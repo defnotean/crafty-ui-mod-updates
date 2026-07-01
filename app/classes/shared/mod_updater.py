@@ -1,21 +1,20 @@
+"""Backward-compatible shim for mod updates.
+
+Deprecated: use ``ModUpdateManager`` from ``mod_update_manager`` directly.
+"""
+
+from __future__ import annotations
+
 import hashlib
 import logging
-import re
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
-import requests
-
-from app.classes.helpers.file_helpers import FileHelpers
+from app.classes.shared.mod_update_manager import ModUpdateManager
 
 logger = logging.getLogger(__name__)
-
-MODRINTH_UPDATE_URL = "https://api.modrinth.com/v2/version_files/update"
-MODRINTH_HEADERS = {
-    "User-Agent": "Crafty Controller (https://craftycontrol.com)",
-    "Content-Type": "application/json",
-}
 
 
 @dataclass
@@ -40,53 +39,64 @@ class ModUpdateResult:
         )
 
 
-class ModrinthModUpdater:
-    """Updates installed Minecraft mod/plugin jars through Modrinth hash lookups."""
+def _scan_to_result(scan: dict[str, Any]) -> ModUpdateResult:
+    mods = scan.get("mods", [])
+    if not isinstance(mods, list):
+        mods = []
+    summary = scan.get("summary", {})
+    if not isinstance(summary, dict):
+        summary = {}
+    result = ModUpdateResult()
+    result.checked = int(summary.get("installed", len(mods)))
+    result.updated = int(summary.get("updated", 0))
+    result.failed = sum(1 for mod in mods if mod.get("status") == "failed")
+    result.skipped = max(0, result.checked - result.updated - result.failed)
+    for mod in mods:
+        message = mod.get("message", "")
+        if message:
+            result.messages.append(message)
+    return result
 
-    def __init__(
-        self,
-        http_post: Callable[..., Any] | None = None,
-        downloader: Callable[..., bool] | None = None,
-    ) -> None:
-        self.http_post = http_post or requests.post
-        self.downloader = downloader or FileHelpers.ssl_get_file
+
+class ModrinthModUpdater:
+    """Deprecated wrapper around :class:`ModUpdateManager`."""
+
+    def __init__(self, session=None, **_legacy_kwargs) -> None:
+        if _legacy_kwargs:
+            warnings.warn(
+                "ModrinthModUpdater injection kwargs are deprecated; "
+                "pass a requests.Session to ModUpdateManager instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        self._session = session
 
     @staticmethod
     def detect_game_versions(*values: str | None) -> list[str]:
-        version_pattern = re.compile(r"(?<!\d)(1\.\d+(?:\.\d+)?)(?!\d)")
-        for value in values:
-            if not value:
-                continue
-            match = version_pattern.search(str(value))
-            if match:
-                return [match.group(1)]
-        return []
+        server_stats = {"version": values[0]} if values else {}
+        server_data = {
+            "executable": values[1] if len(values) > 1 else "",
+            "execution_command": values[2] if len(values) > 2 else "",
+        }
+        version = ModUpdateManager.infer_game_version(server_stats, server_data)
+        return [version] if version else []
 
     @staticmethod
     def detect_loaders(*values: str | None) -> list[str]:
         haystack = " ".join(str(value) for value in values if value).lower()
         if not haystack:
             return []
-
-        loader_markers = (
-            ("neoforge", ("neoforge", "neo-forge")),
-            ("fabric", ("fabric",)),
-            ("quilt", ("quilt",)),
-            ("forge", ("forge",)),
-            ("paper", ("paper",)),
-            ("purpur", ("purpur",)),
-            ("spigot", ("spigot",)),
-            ("bukkit", ("bukkit", "craftbukkit")),
-            ("folia", ("folia",)),
-            ("sponge", ("sponge",)),
+        # neoforge before forge — "neoforge" contains "forge" as a substring
+        for loader in ("neoforge", "fabric", "quilt", "forge"):
+            if loader in haystack:
+                return [loader]
+        loader = ModUpdateManager.infer_loader(
+            {
+                "executable": values[0] if len(values) > 0 else "",
+                "execution_command": values[1] if len(values) > 1 else "",
+            }
         )
-        loaders = []
-        for loader, markers in loader_markers:
-            if loader == "forge" and "neoforge" in loaders:
-                continue
-            if any(marker in haystack for marker in markers):
-                loaders.append(loader)
-        return loaders
+        return [loader] if loader else []
 
     @staticmethod
     def sha1_file(path: Path) -> str:
@@ -101,52 +111,17 @@ class ModrinthModUpdater:
         return hashlib.sha1(contents).hexdigest()
 
     def discover_candidates(self, server_path: str | Path) -> list[ModUpdateCandidate]:
-        candidates: list[ModUpdateCandidate] = []
-        for child_dir in ("mods", "plugins"):
-            jar_dir = Path(server_path, child_dir)
-            if not jar_dir.is_dir():
-                continue
-            for jar_path in sorted(jar_dir.glob("*.jar")):
-                if jar_path.is_file():
-                    candidates.append(
-                        ModUpdateCandidate(jar_path, self.sha1_file(jar_path))
-                    )
-        return candidates
-
-    def fetch_updates(
-        self,
-        hashes: list[str],
-        loaders: list[str],
-        game_versions: list[str],
-    ) -> dict[str, Any]:
-        response = self.http_post(
-            MODRINTH_UPDATE_URL,
-            json={
-                "hashes": hashes,
-                "algorithm": "sha1",
-                "loaders": loaders,
-                "game_versions": game_versions,
-            },
-            headers=MODRINTH_HEADERS,
-            timeout=20,
+        warnings.warn(
+            "ModrinthModUpdater.discover_candidates is deprecated; "
+            "use ModUpdateManager.scan instead.",
+            DeprecationWarning,
+            stacklevel=2,
         )
-        response.raise_for_status()
-        data = response.json()
-        if not isinstance(data, dict):
-            raise ValueError("Modrinth returned an unexpected update response.")
-        return data
-
-    @staticmethod
-    def _select_download_file(version: dict[str, Any]) -> dict[str, Any] | None:
-        files = version.get("files", [])
-        if not isinstance(files, list):
-            return None
-        primary_files = [file for file in files if file.get("primary")]
-        for file_info in primary_files + files:
-            filename = str(file_info.get("filename", ""))
-            if filename.lower().endswith(".jar") and file_info.get("url"):
-                return file_info
-        return None
+        manager = ModUpdateManager(server_path, session=self._session)
+        return [
+            ModUpdateCandidate(Path(mod["path"]), mod.get("sha1", ""))
+            for mod in manager.scan().get("mods", [])
+        ]
 
     def update(
         self,
@@ -154,84 +129,13 @@ class ModrinthModUpdater:
         loaders: list[str],
         game_versions: list[str],
     ) -> ModUpdateResult:
-        result = ModUpdateResult()
-        candidates = self.discover_candidates(server_path)
-        result.checked = len(candidates)
-
-        if not candidates:
-            result.messages.append("No mod or plugin .jar files were found.")
-            return result
-
-        updates = self.fetch_updates(
-            [candidate.sha1 for candidate in candidates], loaders, game_versions
+        warnings.warn(
+            "ModrinthModUpdater is deprecated; use ModUpdateManager.update_available.",
+            DeprecationWarning,
+            stacklevel=2,
         )
-
-        for candidate in candidates:
-            version = updates.get(candidate.sha1)
-            if not isinstance(version, dict):
-                result.skipped += 1
-                result.messages.append(f"No Modrinth match for {candidate.path.name}.")
-                continue
-
-            file_info = self._select_download_file(version)
-            if file_info is None:
-                result.skipped += 1
-                result.messages.append(
-                    f"No downloadable jar for {candidate.path.name}."
-                )
-                continue
-
-            expected_sha1 = file_info.get("hashes", {}).get("sha1")
-            if expected_sha1 == candidate.sha1:
-                result.skipped += 1
-                result.messages.append(f"{candidate.path.name} is already current.")
-                continue
-
-            filename = Path(str(file_info["filename"])).name
-            if not filename.lower().endswith(".jar"):
-                result.skipped += 1
-                result.messages.append(
-                    f"Skipped unsafe filename for {candidate.path.name}."
-                )
-                continue
-
-            target_path = candidate.path.with_name(filename)
-            if (
-                target_path.exists()
-                and target_path.resolve() != candidate.path.resolve()
-            ):
-                result.failed += 1
-                result.messages.append(
-                    f"Skipped {candidate.path.name}; target {filename} already exists."
-                )
-                continue
-
-            temp_name = f".crafty-update-{filename}"
-            temp_path = candidate.path.with_name(temp_name)
-            if temp_path.exists():
-                temp_path.unlink()
-
-            downloaded = self.downloader(
-                file_info["url"],
-                str(candidate.path.parent),
-                temp_name,
-                headers=MODRINTH_HEADERS,
-            )
-            if not downloaded:
-                result.failed += 1
-                result.messages.append(f"Download failed for {filename}.")
-                continue
-
-            if expected_sha1 and self.sha1_file(temp_path) != expected_sha1:
-                temp_path.unlink(missing_ok=True)
-                result.failed += 1
-                result.messages.append(f"Hash check failed for {filename}.")
-                continue
-
-            if candidate.path.resolve() != target_path.resolve():
-                candidate.path.unlink()
-            temp_path.replace(target_path)
-            result.updated += 1
-            result.messages.append(f"Updated {candidate.path.name} to {filename}.")
-
-        return result
+        loader = loaders[0] if loaders else ""
+        game_version = game_versions[0] if game_versions else ""
+        manager = ModUpdateManager(server_path, session=self._session)
+        scan = manager.update_available(loader, game_version)
+        return _scan_to_result(scan)

@@ -9,17 +9,34 @@ import logging
 import os
 import re
 import subprocess
+import sys
 import threading
 import time
 
 logger = logging.getLogger(__name__)
 
-# Host-specific tooling (same as run-bore-minecraft.ps1). Kept as module
-# constants so they're trivial to change if the layout moves.
-NODE = r"C:\Program Files\nodejs\node.exe"
-BORE_CLIENT = r"C:\Users\Administrator\Desktop\Minecraft\runtime\bore\bore-client.mjs"
-BORE_HOST = "bore.pub"
+NODE = os.environ.get("CRAFTY_BORE_NODE", "")
+BORE_CLIENT = os.environ.get("CRAFTY_BORE_CLIENT", "")
+BORE_HOST = os.environ.get("CRAFTY_BORE_HOST", "")
 _ADDR_RE = re.compile(r"bore\.pub[:\s]+(\d{2,5})", re.IGNORECASE)
+
+if not sys.platform.startswith("win"):
+    missing = []
+    if not NODE:
+        missing.append("CRAFTY_BORE_NODE")
+    elif not os.path.isfile(NODE):
+        missing.append(f"CRAFTY_BORE_NODE ({NODE})")
+    if not BORE_CLIENT:
+        missing.append("CRAFTY_BORE_CLIENT")
+    elif not os.path.isfile(BORE_CLIENT):
+        missing.append(f"CRAFTY_BORE_CLIENT ({BORE_CLIENT})")
+    if not BORE_HOST:
+        missing.append("CRAFTY_BORE_HOST")
+    if missing:
+        logger.warning(
+            "bore tunnel tooling not configured on this host: %s",
+            ", ".join(missing),
+        )
 
 
 class _Tunnel:
@@ -38,6 +55,16 @@ class TunnelManager:
     def __init__(self):
         self._tunnels = {}
         self._lock = threading.Lock()
+
+    @staticmethod
+    def is_available() -> bool:
+        return bool(
+            NODE
+            and BORE_CLIENT
+            and BORE_HOST
+            and os.path.isfile(NODE)
+            and os.path.isfile(BORE_CLIENT)
+        )
 
     def _alive(self, tunnel):
         return bool(tunnel and tunnel.proc and tunnel.proc.poll() is None)
@@ -94,10 +121,18 @@ class TunnelManager:
     def start(self, server_id, port):
         if not port:
             return {"exposed": False, "error": "no server port"}
-        if not os.path.isfile(BORE_CLIENT):
+        if not self.is_available():
+            missing = []
+            if not NODE or not os.path.isfile(NODE):
+                missing.append("CRAFTY_BORE_NODE")
+            if not BORE_CLIENT or not os.path.isfile(BORE_CLIENT):
+                missing.append("CRAFTY_BORE_CLIENT")
+            if not BORE_HOST:
+                missing.append("CRAFTY_BORE_HOST")
+            detail = ", ".join(missing) if missing else "bore tunnel tooling"
             return {
                 "exposed": False,
-                "error": f"bore client not found at {BORE_CLIENT}",
+                "error": f"bore tunnel not configured ({detail})",
             }
         with self._lock:
             existing = self._tunnels.get(server_id)

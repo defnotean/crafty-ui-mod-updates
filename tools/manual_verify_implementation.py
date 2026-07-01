@@ -75,12 +75,17 @@ def check_tunnel_manager_env() -> None:
         if tm.TunnelManager.is_available():
             ok("tunnel is_available() true when env + files exist")
         else:
-            fail("tunnel is_available", "expected True with valid env pointing at this script")
+            fail(
+                "tunnel is_available",
+                "expected True with valid env pointing at this script",
+            )
 
         mgr = tm.TunnelManager()
         result = mgr.start("srv-1", 25565)
         if result.get("error"):
-            ok(f"tunnel start returns error when bore client cannot run: {result['error'][:60]}...")
+            ok(
+                f"tunnel start returns error when bore client cannot run: {result['error'][:60]}..."
+            )
         else:
             fail("tunnel start", f"expected error, got {result}")
 
@@ -89,7 +94,9 @@ def check_i18n_completeness() -> None:
     """Ensure every craftyMods translate() key in server_mods.html exists in en_EN.json."""
     import re
 
-    html = (ROOT / "app/frontend/templates/panel/server_mods.html").read_text(encoding="utf-8")
+    html = (ROOT / "app/frontend/templates/panel/server_mods.html").read_text(
+        encoding="utf-8"
+    )
     en = json.loads((ROOT / "app/translations/en_EN.json").read_text(encoding="utf-8"))
     keys = re.findall(r"translate\('craftyMods',\s*'([^']+)'", html)
     missing = [k for k in set(keys) if k not in en.get("craftyMods", {})]
@@ -123,7 +130,9 @@ def check_static_assets() -> None:
     else:
         fail("crafty-mods.css", "missing or too small")
 
-    html = (ROOT / "app/frontend/templates/panel/server_mods.html").read_text(encoding="utf-8")
+    html = (ROOT / "app/frontend/templates/panel/server_mods.html").read_text(
+        encoding="utf-8"
+    )
     if "/static/assets/css/internal/crafty-mods.css" in html:
         ok("server_mods.html links internal/crafty-mods.css")
     else:
@@ -132,9 +141,17 @@ def check_static_assets() -> None:
     schedules = (ROOT / "app/frontend/templates/panel/server_schedules.html").read_text(
         encoding="utf-8"
     )
-    if "Automatic Restart" in schedules and "POST" in schedules and "/tasks/" in schedules:
+    if (
+        "Automatic Restart" in schedules
+        and "POST" in schedules
+        and "/tasks/" in schedules
+    ):
         # old duplicate UI used POST to /tasks/
-        if 'name: "Automatic Restart"' in schedules or "Automatic Restart" in schedules and "saveAutoRestart" in schedules:
+        if (
+            'name: "Automatic Restart"' in schedules
+            or "Automatic Restart" in schedules
+            and "saveAutoRestart" in schedules
+        ):
             fail("server_schedules.html", "legacy auto-restart task UI still present")
     if "autoRestartCalloutTitle" in schedules or "auto-restart-callout" in schedules:
         ok("server_schedules.html uses callout instead of duplicate task UI")
@@ -152,7 +169,9 @@ def check_duplicate_migrations_removed() -> None:
 
 
 def check_mod_update_batch_endpoint() -> None:
-    source = (ROOT / "app/classes/shared/mod_update_manager.py").read_text(encoding="utf-8")
+    source = (ROOT / "app/classes/shared/mod_update_manager.py").read_text(
+        encoding="utf-8"
+    )
     if "/version_files/update" in source and "/version_file/" not in source.replace(
         "/version_files/update", ""
     ):

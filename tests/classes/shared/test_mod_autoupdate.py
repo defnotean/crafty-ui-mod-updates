@@ -89,9 +89,7 @@ def test_update_mods_skips_restart_when_no_updates(tmp_path):
     fake_manager.update_available.assert_not_called()
 
 
-def test_try_mc_upgrade_eula_gate_writes_false_when_not_accepted(
-    tmp_path, monkeypatch
-):
+def test_try_mc_upgrade_eula_gate_writes_false_when_not_accepted(tmp_path, monkeypatch):
     """When EULA is not yet accepted, create eula.txt with eula=false."""
     controller = _mock_mc_upgrade_controller(tmp_path)
     monkeypatch.setattr(

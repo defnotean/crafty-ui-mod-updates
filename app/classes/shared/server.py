@@ -1822,9 +1822,7 @@ class ServerInstance:
     def _get_mod_update_context(self) -> tuple[str, str]:
         server_stats = self.stats_helper.get_server_stats()
         loader = ModUpdateManager.infer_loader(self.settings)
-        game_version = ModUpdateManager.infer_game_version(
-            server_stats, self.settings
-        )
+        game_version = ModUpdateManager.infer_game_version(server_stats, self.settings)
         return loader, game_version
 
     def _notify_server_users(self, server_users, message: str) -> None:
@@ -1841,10 +1839,7 @@ class ServerInstance:
         except ValueError as why:
             self._notify_server_users(
                 server_users,
-                "Mod update could not scan mods for "
-                + self.name
-                + ": "
-                + str(why),
+                "Mod update could not scan mods for " + self.name + ": " + str(why),
             )
             self.stats_helper.set_update(False)
             return
@@ -1922,9 +1917,7 @@ class ServerInstance:
         summary = scan.get("summary", {})
         checked = summary.get("installed", 0)
         updated = summary.get("updated", 0)
-        failed = sum(
-            1 for mod in scan.get("mods", []) if mod.get("status") == "failed"
-        )
+        failed = sum(1 for mod in scan.get("mods", []) if mod.get("status") == "failed")
         skipped = max(0, checked - updated - failed)
         result_summary = (
             f"Checked {checked} files. Updated {updated}, "

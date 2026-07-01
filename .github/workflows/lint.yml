@@ -54,5 +54,8 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
+      - name: Prepare migration status directory
+        run: mkdir -p app/migrations/status
+
       - name: Run pytest
         run: python -m pytest tests/ -q

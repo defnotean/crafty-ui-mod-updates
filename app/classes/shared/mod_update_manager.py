@@ -267,10 +267,7 @@ class ModUpdateManager:
         i = 0
         while length >= 4:
             k = (
-                data[i]
-                | (data[i + 1] << 8)
-                | (data[i + 2] << 16)
-                | (data[i + 3] << 24)
+                data[i] | (data[i + 1] << 8) | (data[i + 2] << 16) | (data[i + 3] << 24)
             ) & 0xFFFFFFFF
             k = (k * m) & 0xFFFFFFFF
             k ^= k >> 24
@@ -340,14 +337,14 @@ class ModUpdateManager:
     ) -> dict[str, Any] | None:
         candidates: list[dict[str, Any]] = []
         seen: set = set()
-        for game_version in (game_versions or [None]):
+        for game_version in game_versions or [None]:
             params: dict[str, Any] = {"pageSize": 50}
             if game_version:
                 params["gameVersion"] = game_version
             if loader_type:
                 params["modLoaderType"] = loader_type
             data = self._cf_get(f"/mods/{int(mod_id)}/files", params=params)
-            for file in ((data or {}).get("data") or []):
+            for file in (data or {}).get("data") or []:
                 file_id = file.get("id")
                 if file_id in seen:
                     continue

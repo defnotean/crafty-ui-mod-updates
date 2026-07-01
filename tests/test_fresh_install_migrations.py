@@ -38,6 +38,7 @@ import os
 import sys
 sys.path.insert(0, {str(ROOT)!r})
 os.chdir({str(ROOT)!r})
+os.makedirs(os.path.join({str(ROOT)!r}, "app", "migrations", "status"), exist_ok=True)
 
 import peewee
 from app.classes.helpers.helpers import Helpers
@@ -85,6 +86,7 @@ import os
 import sys
 sys.path.insert(0, {str(ROOT)!r})
 os.chdir({str(ROOT)!r})
+os.makedirs(os.path.join({str(ROOT)!r}, "app", "migrations", "status"), exist_ok=True)
 
 import peewee
 from app.classes.helpers.helpers import Helpers
